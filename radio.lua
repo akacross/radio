@@ -2,7 +2,7 @@ script_name("Radio")
 script_author("akacross")
 script_url("http://akacross.net/")
 
-local script_version = 0.2
+local script_version = 0.3
 
 if getMoonloaderVersion() >= 27 then
 	require 'libstd.deps' {
@@ -98,7 +98,7 @@ local move = false
 local update = false
 local temp_pos = {x = 0, y = 0}
 local paths = {}
-local debug_messages = false
+local debug_messages = true
 
 function apply_custom_style()
    local style = imgui.GetStyle()
@@ -195,12 +195,39 @@ function main()
 			if radio_play ~= nil then
 				if getAudioStreamState(radio_play) == as_status.STOPPED then
 					if radio.player.music_player == 2 or radio.player.music_player == 3 then
-						print(radio.musicid)
+						print('radio.musicid' .. radio.musicid)
 						radio.musicid = radio.musicid + 1 
-						play_radio()
 						
-						if radio.musicid >= table.maxn(radio.music) then
+						if radio_play ~= nil then
+							setAudioStreamState(radio_play, as_action.STOP)
+						end
+						radio.player.pause_play = true
+						radio.player.stop = false
+							
+						if radio.player.stop then
+							if radio_play ~= nil then
+								setAudioStreamState(radio_play, as_action.STOP)
+							end
+						else
+							play_radio()
+						end
+						
+						if radio.musicid >= table.maxn(radio.music) + 1 then
 							radio.musicid = 1
+							
+							if radio_play ~= nil then
+								setAudioStreamState(radio_play, as_action.STOP)
+							end
+							radio.player.pause_play = true
+							radio.player.stop = false
+								
+							if radio.player.stop then
+								if radio_play ~= nil then
+									setAudioStreamState(radio_play, as_action.STOP)
+								end
+							else
+								play_radio()
+							end
 						end
 					end
 				end
@@ -231,26 +258,7 @@ function main()
 	end
 end
 
-function sampev.onPlayAudioStream(url, position, radius, usePosition)
-	if radio.player.pause_play then
-		return false
-	end
-end
 
-function update_script()
-	update_text = https.request(update_url)
-	update_version = update_text:match("version: (.+)")
-	if tonumber(update_version) > script_version then
-		sampAddChatMessage(string.format("{ABB2B9}[%s]{FFFFFF} New version found! The update is in progress..", script.this.name), -1)
-		downloadUrlToFile(script_url, script_path, function(id, status)
-			if status == dlstatus.STATUS_ENDDOWNLOADDATA then
-				sampAddChatMessage(string.format("{ABB2B9}[%s]{FFFFFF} The update was successful!", script.this.name), -1)
-				blankIni()
-				update = true
-			end
-		end)
-	end
-end
 
 -- imgui.OnInitialize() called only once, before the first render
 imgui.OnInitialize(function()
@@ -329,10 +337,48 @@ function()
 						play_radio()
 					end
 				end
-			else
-				
 			end
-			
+			if radio.player.music_player == 2 or radio.player.music_player == 3 then
+				if radio.musicid >= 1 and radio.musicid <= table.maxn(radio.music) then
+					radio.musicid = radio.musicid - 1
+					if debug_messages then
+						print(radio.musicid)
+					end
+					if radio_play ~= nil then
+						setAudioStreamState(radio_play, as_action.STOP)
+					end
+					radio.player.pause_play = true
+					radio.player.stop = false
+						
+					if radio.player.stop then
+						if radio_play ~= nil then
+							setAudioStreamState(radio_play, as_action.STOP)
+						end
+					else
+						play_radio()
+					end
+				end
+
+				if radio.musicid == 0 then
+					radio.musicid = table.maxn(radio.music)
+					if debug_messages then
+						print(radio.musicid)
+					end
+					if radio_play ~= nil then
+						setAudioStreamState(radio_play, as_action.STOP)
+					end
+					radio.player.pause_play = true
+					radio.player.stop = false
+						
+					if radio.player.stop then
+						if radio_play ~= nil then
+							setAudioStreamState(radio_play, as_action.STOP)
+						end
+					else
+						play_radio()
+					end
+				end
+			end
 		end
 		imgui.SameLine() 
 		if imgui.Button(not radio.player.stop and (radio.player.pause_play and faicons.ICON_PAUSE .. '##Pause' or faicons.ICON_PLAY .. '##Play') or faicons.ICON_PLAY) then
@@ -349,8 +395,21 @@ function()
 						end
 					end
 				end
-			else
-				
+			end
+			
+			if radio.player.music_player == 2 or radio.player.music_player == 3 then
+				if not radio.player.stop then
+					radio.player.pause_play = not radio.player.pause_play
+					if radio.player.pause_play then
+						if radio_play ~= nil then
+							setAudioStreamState(radio_play, as_action.PLAY)
+						end
+					else
+						if radio_play ~= nil then
+							setAudioStreamState(radio_play, as_action.PAUSE)
+						end
+					end
+				end
 			end
 		end 
 		imgui.SameLine() 
@@ -364,8 +423,16 @@ function()
 				else
 					play_radio()
 				end
-			else
-				
+			end
+			if radio.player.music_player == 2 or radio.player.music_player == 3 then
+				radio.player.stop = not radio.player.stop
+				if radio.player.stop then
+					if radio_play ~= nil then
+						setAudioStreamState(radio_play, as_action.STOP)
+					end
+				else
+					play_radio()
+				end
 			end
 		end
 		imgui.SameLine() 
@@ -391,7 +458,7 @@ function()
 						play_radio()
 					end
 				end
-				if radio.stationid == table.maxn(radio.stations) + 1 then
+				if radio.stationid == table.maxn(radio.stations) then
 					radio.stationid = 1
 					if debug_messages then
 						print(radio.stationid)
@@ -410,8 +477,47 @@ function()
 						play_radio()
 					end
 				end
-			else
-				
+			end
+			if radio.player.music_player == 2 or radio.player.music_player == 3 then
+				if radio.musicid >= 1 and radio.musicid <= table.maxn(radio.music) then
+					radio.musicid = radio.musicid + 1
+					if debug_messages then
+						print(radio.musicid)
+					end
+					
+					if radio_play ~= nil then
+						setAudioStreamState(radio_play, as_action.STOP)
+					end
+					radio.player.pause_play = true
+					radio.player.stop = false
+						
+					if radio.player.stop then
+						if radio_play ~= nil then
+							setAudioStreamState(radio_play, as_action.STOP)
+						end
+					else
+						play_radio()
+					end
+				end
+				if radio.musicid == table.maxn(radio.music) + 1 then
+					radio.musicid = 1
+					if debug_messages then
+						print(radio.musicid)
+					end
+					if radio_play ~= nil then
+						setAudioStreamState(radio_play, as_action.STOP)
+					end
+					radio.player.pause_play = true
+					radio.player.stop = false
+						
+					if radio.player.stop then
+						if radio_play ~= nil then
+							setAudioStreamState(radio_play, as_action.STOP)
+						end
+					else
+						play_radio()
+					end
+				end
 			end
 		end
 		
@@ -433,13 +539,6 @@ function()
 		
 		imgui.SameLine() 
 		
-		if imgui.Checkbox('Autosave', new.bool(radio.autosave)) then 
-			radio.autosave = not radio.autosave 
-			saveIni() 
-		end
-		
-		imgui.SameLine() 
-		
 		if imgui.Button('Reset') then 
 			blankIni() 
 		end 
@@ -449,6 +548,44 @@ function()
 		if imgui.Button('Save') then 
 			saveIni() 
 		end 
+		
+		imgui.SameLine() 
+		
+		if imgui.Checkbox('##Autosave', new.bool(radio.autosave)) then 
+			radio.autosave = not radio.autosave 
+			saveIni() 
+		end
+		
+		imgui.SameLine()
+		if imgui.Button(ti.ICON_REFRESH .. 'Update') then
+			update_script()
+		end 
+		if imgui.IsItemHovered() then
+			imgui.SetTooltip('Update the script')
+		end
+		imgui.SameLine()
+		if imgui.Checkbox('##autoupdate', new.bool(radio.autoupdate)) then 
+			radio.autoupdate = not radio.autoupdate 
+		end
+		if imgui.IsItemHovered() then
+			imgui.SetTooltip('Auto-Update')
+		end
+		
+		imgui.SameLine()
+		
+		imgui.PushItemWidth(150)
+		local volume = new.float[1](radio.player.volume)
+		if imgui.SliderFloat(u8'##Volume', volume, 0, 1) then
+			radio.player.volume = volume[0]
+			if radio_play ~= nil then
+				setAudioStreamVolume(radio_play, radio.player.volume)
+			end
+		end
+		imgui.PopItemWidth()
+		
+		if imgui.IsItemHovered() then
+			imgui.SetTooltip('Volume Control')
+		end
 		
 		imgui.SameLine()
 		
@@ -483,37 +620,6 @@ function()
 				radio.player.music_player = 0
 			end
 			radio.player.music_player = radio.player.music_player + 1
-		end
-		
-		imgui.SameLine()
-		
-		imgui.PushItemWidth(150)
-		local volume = new.float[1](radio.player.volume)
-		if imgui.SliderFloat(u8'##Volume', volume, 0, 1) then
-			radio.player.volume = volume[0]
-			if radio_play ~= nil then
-				setAudioStreamVolume(radio_play, radio.player.volume)
-			end
-		end
-		imgui.PopItemWidth()
-		
-		if imgui.IsItemHovered() then
-			imgui.SetTooltip('Volume Control')
-		end
-		
-		--imgui.SameLine()
-		if imgui.Button(ti.ICON_REFRESH .. 'Update') then
-			update_script()
-		end 
-		if imgui.IsItemHovered() then
-			imgui.SetTooltip('Update the script')
-		end
-		imgui.SameLine()
-		if imgui.Checkbox('##autoupdate', new.bool(radio.autoupdate)) then 
-			radio.autoupdate = not radio.autoupdate 
-		end
-		if imgui.IsItemHovered() then
-			imgui.SetTooltip('Auto-Update')
 		end
 		
 		if radio.player.music_player == 1 then
@@ -578,7 +684,7 @@ function()
 							--music_state = v
 						end 
 						
-						imgui.SameLine()
+						--[[imgui.SameLine()
 						if imgui.Button('Play##'..k) then 
 							if radio_play ~= nil then
 								setAudioStreamState(radio_play, as_action.STOP)
@@ -589,7 +695,7 @@ function()
 								radio.music[radio.musicid].file = v
 							--end
 							play_radio()
-						end
+						end]]
 						imgui.SameLine()
 						if imgui.Button('Add to Queue##'..k) then 
 							radio.music[#radio.music + 1] = {
@@ -610,7 +716,6 @@ function()
 		end
 		if radio.player.music_player == 3 then
 			for k, v in ipairs(radio.music) do
-				if k ~= 1 then
 					imgui.PushItemWidth(200)
 					text = new.char[256](v.name)
 					if imgui.InputText('##name'..k, text, sizeof(text), imgui.InputTextFlags.EnterReturnsTrue) then
@@ -633,7 +738,6 @@ function()
 					if imgui.Button(u8"x##"..k) then
 						table.remove(radio.music, k)
 					end
-				end
 			end
 		end
 		
@@ -645,6 +749,28 @@ function onWindowMessage(msg, wparam, lparam)
 		if radio.player.pause_play then
 			play_radio()
 		end
+	end
+end
+
+function sampev.onPlayAudioStream(url, position, radius, usePosition)
+	if not radio.player.stop then
+		print('test')
+		return false
+	end
+end
+
+function update_script()
+	update_text = https.request(update_url)
+	update_version = update_text:match("version: (.+)")
+	if tonumber(update_version) > script_version then
+		sampAddChatMessage(string.format("{ABB2B9}[%s]{FFFFFF} New version found! The update is in progress..", script.this.name), -1)
+		downloadUrlToFile(script_url, script_path, function(id, status)
+			if status == dlstatus.STATUS_ENDDOWNLOADDATA then
+				sampAddChatMessage(string.format("{ABB2B9}[%s]{FFFFFF} The update was successful!", script.this.name), -1)
+				blankIni()
+				update = true
+			end
+		end)
 	end
 end
 
