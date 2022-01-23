@@ -248,7 +248,7 @@ function main()
 			end
 		end
 		if update then
-			stations_menu[0] = false
+			main_window_state[0] = false
 			lua_thread.create(function() 
 				wait(20000) 
 				thisScript():reload()
@@ -851,10 +851,6 @@ function play_radio()
 						end
 					end
 				else
-					radio.stationid = radio.stationid + 1
-					
-					play_radio()
-				
 					sampAddChatMessage(string.format("{ABB2B9}[%s]{FFFFFF} Bad audio url detected!", script.this.name), -1)
 				end
 			end
