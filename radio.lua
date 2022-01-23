@@ -2,7 +2,7 @@ script_name("Radio")
 script_author("akacross")
 script_url("http://akacross.net/")
 
-local script_version = 0.3
+local script_version = 0.4
 
 if getMoonloaderVersion() >= 27 then
 	require 'libstd.deps' {
@@ -248,7 +248,7 @@ function main()
 			end
 		end
 		if update then
-			stations_menu[0] = false
+			main_window_state[0] = false
 			lua_thread.create(function() 
 				wait(20000) 
 				thisScript():reload()
@@ -402,7 +402,7 @@ function()
 					radio.player.pause_play = not radio.player.pause_play
 					if radio.player.pause_play then
 						if radio_play ~= nil then
-							setAudioStreamState(radio_play, as_action.PLAY)
+							setAudioStreamState(radio_play, as_action.RESUME)
 						end
 					else
 						if radio_play ~= nil then
@@ -525,37 +525,77 @@ function()
 	imgui.PopStyleColor()
 end).HideCursor = true
 
+local mnames = {'Radio', 'Music', 'Queue'}
+local string = ''
+
 imgui.OnFrame(function() return stations_menu[0] end,
 function()
 	local width, height = getScreenResolution()
 	imgui.SetNextWindowPos(imgui.ImVec2(width / 2, height / 2), imgui.Cond.FirstUseEver, imgui.ImVec2(0.5, 0.5))
 	imgui.SetNextWindowSize(imgui.ImVec2(500, 360), imgui.Cond.FirstUseEver)
 
-    imgui.Begin(faicons.ICON_PLAY .. string.format(" %s Settings - Version: %s", script.this.name, script.this.version), stations_menu, imgui.WindowFlags.NoResize + imgui.WindowFlags.NoSavedSettings) 
+	
+
+
+	if radio.player.music_player == 1 then
+
+		string = string.format(" %s %s - %s[%d] - %s[%d] - %s: %s", script.this.name, ti.ICON_SETTINGS, mnames[radio.player.music_player], radio.player.music_player, radio.stations[radio.stationid].name, radio.stationid, ti.ICON_VERSIONS, script_version)
+		
+	end
+	
+	if radio.player.music_player == 2 or radio.player.music_player == 3 then
+		
+		if radio.music[radio.musicid] ~= nil then
+			string = string.format(" %s %s - %s[%d] - %s[%d] - %s: %s", script.this.name, ti.ICON_SETTINGS, mnames[radio.player.music_player], radio.player.music_player, radio.music[radio.musicid].name, radio.musicid, ti.ICON_VERSIONS, script_version)
+		else
+			string = string.format(" %s %s - %s[%d] - Empty[1] - %s: %s", script.this.name, ti.ICON_SETTINGS, mnames[radio.player.music_player], radio.player.music_player, ti.ICON_VERSIONS, script_version)
+		end
+		
+	end
+
+    imgui.Begin(faicons.ICON_PLAY .. string, stations_menu, imgui.WindowFlags.NoResize + imgui.WindowFlags.NoSavedSettings + imgui.WindowFlags.MenuBar) 
+		
+		
+		imgui.BeginMenuBar()
+			for i = 1, 3 do 
+				if imgui.MenuItemBool(u8(mnames[i])) then
+					radio.player.music_player = i 
+				end
+			end
+		imgui.EndMenuBar()
 		
 		if imgui.Checkbox(radio.toggle and 'ON' or 'OFF', new.bool(radio.toggle)) then 
 			radio.toggle = not radio.toggle
 		end 
-		
 		imgui.SameLine() 
-		
-		if imgui.Button('Reset') then 
-			blankIni() 
+		if imgui.Button(ti.ICON_DEVICE_FLOPPY.. 'Save') then
+			saveIni()
 		end 
-		
+		if imgui.IsItemHovered() then
+			imgui.SetTooltip('Save the Script')
+		end
 		imgui.SameLine()
-		
-		if imgui.Button('Save') then 
-			saveIni() 
-		end 
-		
-		imgui.SameLine() 
-		
-		if imgui.Checkbox('##Autosave', new.bool(radio.autosave)) then 
+		if imgui.Checkbox('##autosave', new.bool(radio.autosave)) then 
 			radio.autosave = not radio.autosave 
 			saveIni() 
 		end
-		
+		if imgui.IsItemHovered() then
+			imgui.SetTooltip('Autosave')
+		end
+		imgui.SameLine()
+		if imgui.Button(ti.ICON_FILE_UPLOAD.. 'Load') then
+			loadIni()
+		end 
+		if imgui.IsItemHovered() then
+			imgui.SetTooltip('Reload the Script')
+		end
+		imgui.SameLine()
+		if imgui.Button(ti.ICON_ERASER .. 'Reset') then
+			blankIni()
+		end 
+		if imgui.IsItemHovered() then
+			imgui.SetTooltip('Reset the Script to default settings')
+		end
 		imgui.SameLine()
 		if imgui.Button(ti.ICON_REFRESH .. 'Update') then
 			update_script()
@@ -573,7 +613,7 @@ function()
 		
 		imgui.SameLine()
 		
-		imgui.PushItemWidth(150)
+		imgui.PushItemWidth(100)
 		local volume = new.float[1](radio.player.volume)
 		if imgui.SliderFloat(u8'##Volume', volume, 0, 1) then
 			radio.player.volume = volume[0]
@@ -601,25 +641,6 @@ function()
 				radio.imgui.pos[2] = temp_pos.y
 				move = false
 			end
-		end
-		
-		imgui.SameLine()
-		
-		local music_state = 'Radio'
-		if radio.player.music_player == 1 then
-			music_state = 'Radio'
-		end
-		if  radio.player.music_player == 2 then
-			music_state = 'Music'
-		end
-		if radio.player.music_player == 3 then
-			music_state = 'Queue'
-		end
-		if imgui.Button(music_state) then
-			if radio.player.music_player == 3 then
-				radio.player.music_player = 0
-			end
-			radio.player.music_player = radio.player.music_player + 1
 		end
 		
 		if radio.player.music_player == 1 then
@@ -745,16 +766,24 @@ function()
 end)
 
 function onWindowMessage(msg, wparam, lparam)
-	if msg == wm.WM_SETFOCUS then
-		if radio.player.pause_play then
-			play_radio()
-		end
+  if msg == wm.WM_KILLFOCUS then
+		setAudioStreamState(radio_play, as_action.PAUSE)
+	elseif msg == wm.WM_SETFOCUS then
+		setAudioStreamState(radio_play, as_action.RESUME)
 	end
+	
+	if wparam == VK_ESCAPE and stations_menu[0] then
+        if msg == wm.WM_KEYDOWN then
+            consumeWindowMessage(true, false)
+        end
+        if msg == wm.WM_KEYUP then
+            stations_menu[0] = false
+        end
+    end
 end
 
 function sampev.onPlayAudioStream(url, position, radius, usePosition)
 	if not radio.player.stop then
-		print('test')
 		return false
 	end
 end
@@ -796,23 +825,37 @@ function play_radio()
 	if radio.player.music_player == 1 then
 		if radio.stations[radio.stationid] ~= nil then
 			if not radio.player.stop then
-				if debug_messages then
-					print(radio.stations[radio.stationid].station)
-				end
-				if radio_play ~= nil then
-					releaseAudioStream(radio_play)
-				end
-				radio_play = loadAudioStream(radio.stations[radio.stationid].station)
-				setAudioStreamVolume(radio_play, radio.player.volume)
-					
-				if radio.player.pause_play then
+			
+				local res, code, headers, status = https.request(radio.stations[radio.stationid].station)
+				print(code)
+				if code ~= 'timeout' then
+					if debug_messages then
+						print(code)
+						print(radio.stations[radio.stationid].station)
+					end
 					if radio_play ~= nil then
-						setAudioStreamState(radio_play, as_action.PLAY)
+						releaseAudioStream(radio_play)
+					end
+					radio_play = loadAudioStream(radio.stations[radio.stationid].station)
+					if radio_play ~= nil then
+						setAudioStreamVolume(radio_play, radio.player.volume)
+					end
+						
+					if radio.player.pause_play then
+						if radio_play ~= nil then
+							setAudioStreamState(radio_play, as_action.PLAY)
+						end
+					else
+						if radio_play ~= nil then
+							setAudioStreamState(radio_play, as_action.PAUSE)
+						end
 					end
 				else
-					if radio_play ~= nil then
-						setAudioStreamState(radio_play, as_action.PAUSE)
-					end
+					radio.stationid = radio.stationid + 1
+					
+					play_radio()
+				
+					sampAddChatMessage(string.format("{ABB2B9}[%s]{FFFFFF} Bad audio url detected!", script.this.name), -1)
 				end
 			end
 		end
@@ -820,20 +863,26 @@ function play_radio()
 	if radio.player.music_player == 2 or radio.player.music_player == 3 then
 		if not radio.player.stop then
 			if radio.music[radio.musicid] ~= nil then
-				if radio_play ~= nil then
-					releaseAudioStream(radio_play)
-				end
-				radio_play = loadAudioStream(radio.music[radio.musicid].file)
-				setAudioStreamVolume(radio_play, radio.player.volume)
+				if doesFileExist(radio.music[radio.musicid].file) then
+				
+						if radio_play ~= nil then
+							releaseAudioStream(radio_play)
+						end
+						radio_play = loadAudioStream(radio.music[radio.musicid].file)
+						setAudioStreamVolume(radio_play, radio.player.volume)
 						
-				if radio.player.pause_play then
-					if radio_play ~= nil then
-						setAudioStreamState(radio_play, as_action.PLAY)
+					if radio.player.pause_play then
+						if radio_play ~= nil then
+							setAudioStreamState(radio_play, as_action.RESUME)
+						end
+					else
+						if radio_play ~= nil then
+							setAudioStreamState(radio_play, as_action.PAUSE)
+						end
+					
 					end
 				else
-					if radio_play ~= nil then
-						setAudioStreamState(radio_play, as_action.PAUSE)
-					end
+					sampAddChatMessage(string.format("{ABB2B9}[%s]{FFFFFF} Bad audio file detected!", script.this.name), -1)
 				end
 			end
 		end
