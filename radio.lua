@@ -248,7 +248,7 @@ function main()
 			end
 		end
 		if update then
-			main_window_state[0] = false
+			stations_menu[0] = false
 			lua_thread.create(function() 
 				wait(20000) 
 				thisScript():reload()
