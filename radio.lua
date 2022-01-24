@@ -59,12 +59,7 @@ local radio = {
 		color = {000000},
 	},
 	musicid = 1,
-	music = {
-		{
-			file = 'Blank',
-			name = 'Blank'
-		},
-	},
+	music = {},
 	stationid = 1,
 	stations = {
 		{ 
@@ -186,6 +181,9 @@ function main()
 	end)
 	
 	play_radio()
+	if radio_play ~= nil then
+		setAudioStreamState(radio_play, as_action.PLAY)
+	end
 	
 	paths = scanGameFolder(audiopath, paths)
 	
@@ -193,6 +191,7 @@ function main()
 	lua_thread.create(function() 
 		while true do wait(2000) 
 			if radio_play ~= nil then
+			
 				if getAudioStreamState(radio_play) == as_status.STOPPED then
 					if radio.player.music_player == 2 or radio.player.music_player == 3 then
 						print('radio.musicid' .. radio.musicid)
@@ -236,6 +235,7 @@ function main()
 	end)
 	
 	while true do wait(0)
+	
 		x, y = getCursorPos()
 		if move then	
 			if isKeyJustPressed(VK_LBUTTON) then 
@@ -258,7 +258,15 @@ function main()
 	end
 end
 
-
+function split(str, delim, plain)
+    local tokens, pos, plain = {}, 1, not (plain == false) --[[ delimiter is plain text by default ]]
+    repeat
+        local npos, epos = string.find(str, delim, pos, plain)
+        table.insert(tokens, string.sub(str, pos, npos and npos - 1))
+        pos = epos and epos + 1
+    until not pos
+    return tokens
+end
 
 -- imgui.OnInitialize() called only once, before the first render
 imgui.OnInitialize(function()
@@ -534,32 +542,31 @@ function()
 	imgui.SetNextWindowPos(imgui.ImVec2(width / 2, height / 2), imgui.Cond.FirstUseEver, imgui.ImVec2(0.5, 0.5))
 	imgui.SetNextWindowSize(imgui.ImVec2(500, 360), imgui.Cond.FirstUseEver)
 
-	
-
-
-	if radio.player.music_player == 1 then
-
-		string = string.format(" %s %s - %s[%d] - %s[%d] - %s: %s", script.this.name, ti.ICON_SETTINGS, mnames[radio.player.music_player], radio.player.music_player, radio.stations[radio.stationid].name, radio.stationid, ti.ICON_VERSIONS, script_version)
-		
-	end
-	
-	if radio.player.music_player == 2 or radio.player.music_player == 3 then
-		
-		if radio.music[radio.musicid] ~= nil then
-			string = string.format(" %s %s - %s[%d] - %s[%d] - %s: %s", script.this.name, ti.ICON_SETTINGS, mnames[radio.player.music_player], radio.player.music_player, radio.music[radio.musicid].name, radio.musicid, ti.ICON_VERSIONS, script_version)
-		else
-			string = string.format(" %s %s - %s[%d] - Empty[1] - %s: %s", script.this.name, ti.ICON_SETTINGS, mnames[radio.player.music_player], radio.player.music_player, ti.ICON_VERSIONS, script_version)
-		end
-		
-	end
-
-    imgui.Begin(faicons.ICON_PLAY .. string, stations_menu, imgui.WindowFlags.NoResize + imgui.WindowFlags.NoSavedSettings + imgui.WindowFlags.MenuBar) 
+    imgui.Begin(faicons.ICON_PLAY .. string.format(" %s Settings %s - %s[%d] - Verison: %s", script.this.name, ti.ICON_SETTINGS, mnames[radio.player.music_player], radio.player.music_player, script_version), stations_menu, imgui.WindowFlags.NoResize + imgui.WindowFlags.NoSavedSettings + imgui.WindowFlags.MenuBar) 
 		
 		
 		imgui.BeginMenuBar()
 			for i = 1, 3 do 
 				if imgui.MenuItemBool(u8(mnames[i])) then
-					radio.player.music_player = i 
+					radio.player.music_player = i
+					if i == 1 then
+						print(radio.player.stop)
+						if not radio.player.pause_play and not radio.player.stop then
+							play_radio()
+							if radio_play ~= nil then
+								setAudioStreamState(radio_play, as_action.PLAY)
+							end
+						end
+					end
+					if i == 3 then
+						print(radio.player.stop)
+						if not radio.player.pause_play and not radio.player.stop then
+							play_radio()
+							if radio_play ~= nil then
+								--setAudioStreamState(radio_play, as_action.PLAY)
+							end
+						end
+					end
 				end
 			end
 		imgui.EndMenuBar()
@@ -644,6 +651,9 @@ function()
 		end
 		
 		if radio.player.music_player == 1 then
+		
+			imgui.Text(string.format(" %s[%d]", radio.stations[radio.stationid].name, radio.stationid))
+		
 			for k, v in ipairs(radio.stations) do
 				
 				text = new.char[256](v.station)
@@ -701,27 +711,16 @@ function()
 					k = tostring(k)
 					if k:match(".+%.mp3") or k:match(".+%.mp4") or k:match(".+%.wav") or k:match(".+%.m4a") or k:match(".+%.flac") or k:match(".+%.m4r") or k:match(".+%.ogg") or k:match(".+%.mp2") or
 						k:match(".+%.amr") or k:match(".+%.wma") or k:match(".+%.aac") or k:match(".+%.aiff") then
-						if imgui.Button(u8(k)) then 
-							--music_state = v
-						end 
 						
-						--[[imgui.SameLine()
-						if imgui.Button('Play##'..k) then 
-							if radio_play ~= nil then
-								setAudioStreamState(radio_play, as_action.STOP)
-							end
-							radio.player.pause_play = true
-							radio.player.stop = false
-							--if radio.music[radio.musicid] ~= nil then
-								radio.music[radio.musicid].file = v
-							--end
-							play_radio()
-						end]]
+						local song = split(k, ".")
+						
+						imgui.Text(u8(song[1]))
 						imgui.SameLine()
+						
 						if imgui.Button('Add to Queue##'..k) then 
 							radio.music[#radio.music + 1] = {
 								file = v,
-								name = k,
+								name = song[1],
 							}
 							for k, v in ipairs(radio.music) do
 								local id = table.maxn(radio.music)
@@ -736,6 +735,13 @@ function()
 			end
 		end
 		if radio.player.music_player == 3 then
+			
+			if radio.music[radio.musicid] ~= nil then
+				imgui.Text(string.format(" %s[%d]", radio.music[radio.musicid].name, radio.musicid))
+			else
+				imgui.Text('Empty[1]')
+			end
+			
 			for k, v in ipairs(radio.music) do
 					imgui.PushItemWidth(200)
 					text = new.char[256](v.name)
@@ -752,6 +758,7 @@ function()
 						radio.player.pause_play = true
 						radio.player.stop = false
 						radio.musicid = k
+
 						play_radio()
 					end
 				
@@ -875,7 +882,6 @@ function play_radio()
 						if radio_play ~= nil then
 							setAudioStreamState(radio_play, as_action.PAUSE)
 						end
-					
 					end
 				else
 					sampAddChatMessage(string.format("{ABB2B9}[%s]{FFFFFF} Bad audio file detected!", script.this.name), -1)
