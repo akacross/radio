@@ -36,6 +36,7 @@ local https = require 'ssl.https'
 local path = getWorkingDirectory() .. '\\config\\' 
 local cfg = path .. 'radio.ini' 
 local audiopath = getGameDirectory() .. "\\moonloader\\resource\\audio\\radio"
+local audiopath2 = getGameDirectory() .. "\\moonloader\\resource\\audio\\radio\\pls"
 local script_path = thisScript().path
 local script_url = "https://raw.githubusercontent.com/akacross/radio/main/radio.lua"
 local update_url = "https://raw.githubusercontent.com/akacross/radio/main/radio.txt"
@@ -156,6 +157,7 @@ function main()
 	blank = table.deepcopy(radio)
 	if not doesDirectoryExist(path) then createDirectory(path) end
 	if not doesDirectoryExist(audiopath) then createDirectory(audiopath) end
+	if not doesDirectoryExist(audiopath2) then createDirectory(audiopath2) end
 	if doesFileExist(cfg) then loadIni() else blankIni() end
 
     repeat wait(0) until isSampAvailable()
@@ -833,12 +835,16 @@ function onWindowMessage(msg, wparam, lparam)
 	if msg == wm.WM_KILLFOCUS then
 		if radio.player.pause_play then
 			if radio_play ~= nil then
+				radio.player.pause_play = false
+				radio.player.stop = true
 				setAudioStreamState(radio_play, as_action.PAUSE)
 			end
 		end
 	elseif msg == wm.WM_SETFOCUS then
 		if radio.player.pause_play then
 			if radio_play ~= nil then
+				radio.player.pause_play = true
+				radio.player.stop = false
 				setAudioStreamState(radio_play, as_action.RESUME)
 			end
 		end
@@ -898,33 +904,32 @@ function play_radio()
 		if radio.stations[radio.stationid] ~= nil then
 			if not radio.player.stop then
 			
-				local res, code, headers, status = https.request(radio.stations[radio.stationid].station)
-				print(code)
-				if code ~= 'timeout' then
-					if debug_messages then
-						print(code)
-						print(radio.stations[radio.stationid].station)
-					end
-					if radio_play ~= nil then
-						releaseAudioStream(radio_play)
-					end
-					radio_play = loadAudioStream(radio.stations[radio.stationid].station)
-					if radio_play ~= nil then
-						setAudioStreamVolume(radio_play, radio.player.volume)
-					end
-						
-					if radio.player.pause_play then
-						if radio_play ~= nil then
-							setAudioStreamState(radio_play, as_action.PLAY)
+				downloadUrlToFile(radio.stations[radio.stationid].station, audiopath2..'\\playlist'..radio.stationid, function(id, status)
+					--print(status)
+					if status == dlstatus.STATUS_BEGINDOWNLOADDATA then
+						if debug_messages then
+							print(radio.stations[radio.stationid].station)
 						end
-					else
 						if radio_play ~= nil then
-							setAudioStreamState(radio_play, as_action.PAUSE)
+							releaseAudioStream(radio_play)
+						end
+						radio_play = loadAudioStream(radio.stations[radio.stationid].station)
+						if radio_play ~= nil then
+							setAudioStreamVolume(radio_play, radio.player.volume)
+						end
+							
+						if radio.player.pause_play then
+							if radio_play ~= nil then
+								setAudioStreamState(radio_play, as_action.PLAY)
+							end
+						else
+							if radio_play ~= nil then
+								setAudioStreamState(radio_play, as_action.PAUSE)
+							end
 						end
 					end
-				else
-					sampAddChatMessage(string.format("{ABB2B9}[%s]{FFFFFF} Bad audio url detected!", script.this.name), -1)
-				end
+				end)
+					--sampAddChatMessage(string.format("{ABB2B9}[%s]{FFFFFF} Bad audio url detected!", script.this.name), -1)
 			end
 		end
 	end
