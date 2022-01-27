@@ -68,7 +68,7 @@ local radio = {
 			name = 'HZG radio'
 		},
 		{ 
-			station = "https://radio.akacross.net/listen.pls",
+			station = "https://akacross.net/akacross.pls",
 			name = 'akacross radio'
 		},
 		{ 
@@ -198,6 +198,7 @@ function main()
 				if getAudioStreamState(radio_play) == as_status.STOPPED then
 				
 					if radio.player.music_player == 1 then
+						radio.stationid = radio.stationid + 1
 						if radio_play ~= nil then
 							radio.player.pause_play = false
 							setAudioStreamState(radio_play, as_action.STOP)
@@ -213,6 +214,27 @@ function main()
 							radio.player.stop = false
 							play_radio()
 						end
+						
+						if radio.stationid >= table.maxn(radio.stations) + 1 then
+							radio.stationid = 1
+							
+							if radio_play ~= nil then
+								radio.player.pause_play = false
+								setAudioStreamState(radio_play, as_action.STOP)
+							end
+								
+							if radio.player.stop then
+								if radio_play ~= nil then
+									radio.player.pause_play = false
+									setAudioStreamState(radio_play, as_action.STOP)
+								end
+							else
+								radio.player.pause_play = true
+								radio.player.stop = false
+								play_radio()
+							end
+						end
+						
 					end
 					if radio.player.music_player == 2 or radio.player.music_player == 3 then
 						print('radio.musicid' .. radio.musicid)
@@ -459,7 +481,11 @@ function()
 		if radio.player.music_player == 1 then
 			radio_player()
 			imgui.SameLine()
-			imgui.Text(string.format(" %s[%d]", radio.stations[radio.stationid].name, radio.stationid))
+			if radio.stations[radio.stationid] ~= nil then
+				imgui.Text(string.format(" %s[%d]", radio.stations[radio.stationid].name, radio.stationid))
+			else
+				imgui.Text(string.format(" Empty[%d]", table.maxn(radio.stations) + 1))
+			end
 		
 			for k, v in ipairs(radio.stations) do
 				
@@ -494,6 +520,8 @@ function()
 				if k ~= 1 then
 					if imgui.Button(u8"x##"..k) then
 						table.remove(radio.stations, k)
+						radio.stationid = 1
+						os.remove(audiopath2..'\\playlist'..k)
 					end
 				else
 					if imgui.Button(u8"+") then
@@ -901,7 +929,6 @@ function play_radio()
 	if radio.player.music_player == 1 then
 		if radio.stations[radio.stationid] ~= nil then
 			if not radio.player.stop then
-			
 				os.remove(audiopath2..'\\playlist'..radio.stationid)
 				downloadUrlToFile(radio.stations[radio.stationid].station, audiopath2..'\\playlist'..radio.stationid, function(id, status)
 					if status == dlstatus.STATUS_BEGINDOWNLOADDATA then
@@ -925,9 +952,9 @@ function play_radio()
 								setAudioStreamState(radio_play, as_action.PAUSE)
 							end
 						end
-					end
+						return true
+					end		
 				end)
-					--sampAddChatMessage(string.format("{ABB2B9}[%s]{FFFFFF} Bad audio url detected!", script.this.name), -1)
 			end
 		end
 	end
