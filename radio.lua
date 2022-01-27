@@ -2,7 +2,7 @@ script_name("Radio")
 script_author("akacross")
 script_url("http://akacross.net/")
 
-local script_version = 0.8
+local script_version = 0.9
 
 if getMoonloaderVersion() >= 27 then
 	require 'libstd.deps' {
@@ -94,7 +94,7 @@ local move = false
 local update = false
 local temp_pos = {x = 0, y = 0}
 local paths = {}
-local debug_messages = true
+local debug_messages = false
 
 function apply_custom_style()
    local style = imgui.GetStyle()
@@ -835,8 +835,6 @@ function onWindowMessage(msg, wparam, lparam)
 	if msg == wm.WM_KILLFOCUS then
 		if radio.player.pause_play then
 			if radio_play ~= nil then
-				radio.player.pause_play = false
-				radio.player.stop = true
 				setAudioStreamState(radio_play, as_action.PAUSE)
 			end
 		end
@@ -904,8 +902,8 @@ function play_radio()
 		if radio.stations[radio.stationid] ~= nil then
 			if not radio.player.stop then
 			
+				os.remove(audiopath2..'\\playlist'..radio.stationid)
 				downloadUrlToFile(radio.stations[radio.stationid].station, audiopath2..'\\playlist'..radio.stationid, function(id, status)
-					--print(status)
 					if status == dlstatus.STATUS_BEGINDOWNLOADDATA then
 						if debug_messages then
 							print(radio.stations[radio.stationid].station)
