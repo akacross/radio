@@ -167,20 +167,9 @@ function main()
 		update_script()
 	end
 
-	sampRegisterChatCommand("stations", function() 
-		if not update then
-			stations_menu[0] = not stations_menu[0] 
-		else
-			sampAddChatMessage(string.format("{ABB2B9}[%s]{FFFFFF} The update is in progress.. Please wait..", script.this.name), -1)
-		end
-	end)
-	sampRegisterChatCommand("radio", function() 
-		if not update then
-			stations_menu[0] = not stations_menu[0] 
-		else
-			sampAddChatMessage(string.format("{ABB2B9}[%s]{FFFFFF} The update is in progress.. Please wait..", script.this.name), -1)
-		end
-	end)
+	sampRegisterChatCommand("stations", menu_command)
+	sampRegisterChatCommand("radio", menu_command)
+	sampRegisterChatCommand("music", menu_command)
 	
 	play_radio()
 	if radio_play ~= nil then
@@ -303,6 +292,15 @@ function main()
 				update = false
 			end)
 		end
+	end
+end
+
+
+function menu_command()
+	if not update then
+		stations_menu[0] = not stations_menu[0] 
+	else
+		sampAddChatMessage(string.format("{ABB2B9}[%s]{FFFFFF} The update is in progress.. Please wait..", script.this.name), -1)
 	end
 end
 
