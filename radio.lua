@@ -35,8 +35,7 @@ local dlstatus = require('moonloader').download_status
 local https = require 'ssl.https'
 local path = getWorkingDirectory() .. '\\config\\' 
 local cfg = path .. 'radio.ini' 
-local audiopath = getGameDirectory() .. "\\moonloader\\resource\\audio\\radio"
-local audiopath2 = getGameDirectory() .. "\\moonloader\\resource\\audio\\radio\\pls"
+local audiopath = getGameDirectory() .. "\\moonloader\\resource\\audio\\radio\\pls"
 local script_path = thisScript().path
 local script_url = "https://raw.githubusercontent.com/akacross/radio/main/radio.lua"
 local update_url = "https://raw.githubusercontent.com/akacross/radio/main/radio.txt"
@@ -58,6 +57,12 @@ local radio = {
 		pos = {500,200},
 		size = {84.0,25.0},
 		color = {000000},
+	},
+	folders = {
+		{
+			name = 'default location',
+			folder = getGameDirectory() .. "\\moonloader\\resource\\audio\\radio"
+		}
 	},
 	musicid = 1,
 	music = {},
@@ -84,7 +89,7 @@ local radio = {
 		music_player = 1,
 		pause_play = false,
 		stop = false,
-		volume = 1.0,
+		volume = 1.0
 	},
 }
 
@@ -94,7 +99,7 @@ local move = false
 local update = false
 local temp_pos = {x = 0, y = 0}
 local paths = {}
-local debug_messages = false
+local debug_messages = true
 
 function apply_custom_style()
    local style = imgui.GetStyle()
@@ -157,11 +162,9 @@ function main()
 	blank = table.deepcopy(radio)
 	if not doesDirectoryExist(path) then createDirectory(path) end
 	if not doesDirectoryExist(audiopath) then createDirectory(audiopath) end
-	if not doesDirectoryExist(audiopath2) then createDirectory(audiopath2) end
 	if doesFileExist(cfg) then loadIni() else blankIni() end
 
     repeat wait(0) until isSampAvailable()
-	repeat wait(0) until sampGetGamestate() == 3
 
 	if radio.autoupdate then
 		update_script()
@@ -171,23 +174,19 @@ function main()
 	sampRegisterChatCommand("radio", menu_command)
 	sampRegisterChatCommand("music", menu_command)
 	
-	play_radio()
-	if radio_play ~= nil then
-		radio.player.pause_play = true
-		setAudioStreamState(radio_play, as_action.PLAY)
+	radio.stationid = 0
+	
+	for k, v in ipairs(radio.folders) do
+		paths = scanGameFolder(v.folder, paths)
 	end
-	
-	paths = scanGameFolder(audiopath, paths)
-	
 	
 	lua_thread.create(function() 
 		while true do wait(2000) 
-			if radio_play ~= nil then
-			
-				if getAudioStreamState(radio_play) == as_status.STOPPED then
-				
-					if radio.player.music_player == 1 then
-						radio.stationid = radio.stationid + 1
+			if not radio.player.stop then
+				if radio.player.music_player == 1 then	
+					if radio.stationid == 0 then
+						radio.stationid = 1
+						
 						if radio_play ~= nil then
 							radio.player.pause_play = false
 							setAudioStreamState(radio_play, as_action.STOP)
@@ -203,10 +202,11 @@ function main()
 							radio.player.stop = false
 							play_radio()
 						end
-						
-						if radio.stationid >= table.maxn(radio.stations) + 1 then
-							radio.stationid = 1
-							
+					end	
+					
+					if radio_play ~= nil then
+						if getAudioStreamState(radio_play) == as_status.STOPPED then
+							radio.stationid = radio.stationid + 1
 							if radio_play ~= nil then
 								radio.player.pause_play = false
 								setAudioStreamState(radio_play, as_action.STOP)
@@ -223,17 +223,14 @@ function main()
 								play_radio()
 							end
 						end
-						
 					end
-					if radio.player.music_player == 2 or radio.player.music_player == 3 then
-						print('radio.musicid' .. radio.musicid)
-						radio.musicid = radio.musicid + 1 
+					if radio.stationid >= table.maxn(radio.stations) + 1 then
+						radio.stationid = 1
 						
 						if radio_play ~= nil then
 							radio.player.pause_play = false
 							setAudioStreamState(radio_play, as_action.STOP)
 						end
-						
 							
 						if radio.player.stop then
 							if radio_play ~= nil then
@@ -245,14 +242,19 @@ function main()
 							radio.player.stop = false
 							play_radio()
 						end
-						
-						if radio.musicid >= table.maxn(radio.music) + 1 then
-							radio.musicid = 1
+					end		
+				end
+				if radio.player.music_player == 2 or radio.player.music_player == 3 then
+					
+					if radio_play ~= nil then
+						if getAudioStreamState(radio_play) == as_status.STOPPED then
+							radio.musicid = radio.musicid + 1 
 							
 							if radio_play ~= nil then
 								radio.player.pause_play = false
 								setAudioStreamState(radio_play, as_action.STOP)
 							end
+							
 								
 							if radio.player.stop then
 								if radio_play ~= nil then
@@ -264,6 +266,25 @@ function main()
 								radio.player.stop = false
 								play_radio()
 							end
+						end
+					end
+					if radio.musicid >= table.maxn(radio.music) + 1 then
+						radio.musicid = 1
+						
+						if radio_play ~= nil then
+							radio.player.pause_play = false
+							setAudioStreamState(radio_play, as_action.STOP)
+						end
+							
+						if radio.player.stop then
+							if radio_play ~= nil then
+								radio.player.pause_play = false
+								setAudioStreamState(radio_play, as_action.STOP)
+							end
+						else
+							radio.player.pause_play = true
+							radio.player.stop = false
+							play_radio()
 						end
 					end
 				end
@@ -346,7 +367,7 @@ function()
 	imgui.PopStyleColor()
 end).HideCursor = true
 
-local mnames = {'Radio', 'Music', 'Queue'}
+local mnames = {'Radio', 'Music', 'Queue', 'Folders'}
 local string = ''
 
 imgui.OnFrame(function() return stations_menu[0] end,
@@ -358,11 +379,10 @@ function()
     imgui.Begin(faicons.ICON_PLAY .. string.format(" %s Settings %s - %s[%d] - Verison: %s", script.this.name, ti.ICON_SETTINGS, mnames[radio.player.music_player], radio.player.music_player, script_version), stations_menu, imgui.WindowFlags.NoResize + imgui.WindowFlags.NoSavedSettings + imgui.WindowFlags.MenuBar) 
 		
 		imgui.BeginMenuBar()
-			for i = 1, 3 do 
+			for i = 1, 4 do 
 				if imgui.MenuItemBool(u8(mnames[i])) then
 					radio.player.music_player = i
 					if i == 1 then
-						print(radio.player.stop)
 						if not radio.player.pause_play and not radio.player.stop then
 							play_radio()
 							if radio_play ~= nil then
@@ -372,7 +392,6 @@ function()
 						end
 					end
 					if i == 3 then
-						print(radio.player.stop)
 						if not radio.player.pause_play and not radio.player.stop then
 							if radio_play ~= nil then
 								radio.player.pause_play = false
@@ -482,7 +501,7 @@ function()
 			if radio.stations[radio.stationid] ~= nil then
 				imgui.Text(string.format(" %s[%d]", radio.stations[radio.stationid].name, radio.stationid))
 			else
-				imgui.Text(string.format(" Empty[%d]", table.maxn(radio.stations) + 1))
+				imgui.Text(string.format(" Empty[%d]", radio.stationid))
 			end
 		
 			for k, v in ipairs(radio.stations) do
@@ -519,7 +538,7 @@ function()
 					if imgui.Button(u8"x##"..k) then
 						table.remove(radio.stations, k)
 						radio.stationid = 1
-						os.remove(audiopath2..'\\playlist'..k)
+						os.remove(audiopath..'\\playlist'..k)
 					end
 				else
 					if imgui.Button(u8"+") then
@@ -527,6 +546,7 @@ function()
 							station = 'url here',
 							name = 'name of radio',
 						}
+						
 						for k, v in ipairs(radio.stations) do
 							local id = table.maxn(radio.stations)
 							if k == id then
@@ -540,6 +560,7 @@ function()
 			end
 		end
 		if radio.player.music_player == 2 then
+		
 			for k, v in pairs(paths) do
 				k = tostring(k)
 				if k:match(".+%.mp3") or k:match(".+%.mp4") or k:match(".+%.wav") or k:match(".+%.m4a") or k:match(".+%.flac") or k:match(".+%.m4r") or k:match(".+%.ogg") or k:match(".+%.mp2") or
@@ -553,6 +574,7 @@ function()
 							file = v,
 							name = k,
 						}
+						radio.musicid = 1
 						for k, v in ipairs(radio.music) do
 							local id = table.maxn(radio.music)
 							if k == id then
@@ -602,6 +624,68 @@ function()
 				end
 			end
 		end
+		if radio.player.music_player == 4 then
+		
+			if imgui.Button(u8"Sync") then
+				local new = {}
+				for k, v in ipairs(radio.folders) do
+					paths = scanGameFolder(v.folder, new)
+				end
+			end
+			imgui.SameLine()
+			if imgui.Button(u8"Reset") then
+				for k,v in pairs(paths) do
+					paths[k] = nil
+				end
+			end
+			imgui.SameLine()
+			if imgui.Button(u8"Merge") then
+				for k, v in ipairs(radio.folders) do
+					paths = scanGameFolder(v.folder, paths)
+				end
+			end
+		
+			for k, v in ipairs(radio.folders) do
+				imgui.PushItemWidth(350)
+				text = new.char[256](v.folder)
+				if imgui.InputText('##name21'..k, text, sizeof(text), imgui.InputTextFlags.EnterReturnsTrue) then
+					v.folder = u8:decode(str(text))
+				end
+				imgui.PopItemWidth()
+				
+				imgui.SameLine()
+				
+				imgui.PushItemWidth(100)
+				text = new.char[256](v.name)
+				if imgui.InputText('##name11'..k, text, sizeof(text), imgui.InputTextFlags.EnterReturnsTrue) then
+					v.name = u8:decode(str(text))
+				end
+				imgui.PopItemWidth()
+				
+				imgui.SameLine()
+				if k ~= 1 then
+					if imgui.Button(u8"x##"..k) then
+						table.remove(radio.folders, k)
+					end
+				else
+					if imgui.Button(u8"+") then
+						radio.folders[#radio.folders + 1] = {
+							folder = 'path here',
+							name = 'name of path',
+						}
+						
+						for k, v in ipairs(radio.folders) do
+							local id = table.maxn(radio.folders)
+							if k == id then
+								if debug_messages then
+									print(k..' - '..table.maxn(radio.folders))
+								end
+							end
+						end
+					end
+				end
+			end
+		end
 		
     imgui.End()
 end)
@@ -609,7 +693,7 @@ end)
 function radio_player()
 	if imgui.Button(faicons.ICON_STEP_BACKWARD) then
 		if radio.player.music_player == 1 then
-			if radio.stationid >= 1 and radio.stationid <= table.maxn(radio.stations) then
+			if radio.stationid >= 1 and radio.stationid <= table.maxn(radio.stations) + 1 then
 				radio.stationid = radio.stationid - 1
 				if debug_messages then
 					print(radio.stationid)
@@ -787,7 +871,7 @@ function radio_player()
 					play_radio()
 				end
 			end
-			if radio.stationid == table.maxn(radio.stations) then
+			if radio.stationid == table.maxn(radio.stations) + 1 then
 				radio.stationid = 1
 				if debug_messages then
 					print(radio.stationid)
@@ -869,7 +953,15 @@ function onWindowMessage(msg, wparam, lparam)
 			if radio_play ~= nil then
 				radio.player.pause_play = true
 				radio.player.stop = false
-				setAudioStreamState(radio_play, as_action.RESUME)
+				if radio.player.music_player == 1 then	
+					print('test')
+					setAudioStreamState(radio_play, as_action.STOP)
+					setAudioStreamState(radio_play, as_action.PLAY)
+				end
+				
+				if radio.player.music_player == 2 or radio.player.music_player == 3 or radio.player.music_player == 4 then	
+					setAudioStreamState(radio_play, as_action.RESUME)
+				end
 			end
 		end
 	end
@@ -927,8 +1019,8 @@ function play_radio()
 	if radio.player.music_player == 1 then
 		if radio.stations[radio.stationid] ~= nil then
 			if not radio.player.stop then
-				os.remove(audiopath2..'\\playlist'..radio.stationid)
-				downloadUrlToFile(radio.stations[radio.stationid].station, audiopath2..'\\playlist'..radio.stationid, function(id, status)
+				os.remove(audiopath..'\\playlist'..radio.stationid)
+				downloadUrlToFile(radio.stations[radio.stationid].station, audiopath..'\\playlist'..radio.stationid, function(id, status)
 					if status == dlstatus.STATUS_BEGINDOWNLOADDATA then
 						if debug_messages then
 							print(radio.stations[radio.stationid].station)
@@ -1015,7 +1107,7 @@ function saveIni()
 		f:close() 
 		if f then 
 			local f = io.open(cfg, "r+") 
-			f:write(encodeJson(radio,true)) 
+			f:write(encodeJson(radio, false)) 
 			f:close() 
 		end 
 	end 
