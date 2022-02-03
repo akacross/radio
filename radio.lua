@@ -2,8 +2,8 @@ script_name("Radio")
 script_author("akacross")
 script_url("http://akacross.net/")
 
-local script_version = 1.0
-local script_version_text = '1.0'
+local script_version = 1.1
+local script_version_text = '1.1'
 
 if getMoonloaderVersion() >= 27 then
 	require 'libstd.deps' {
