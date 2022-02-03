@@ -101,7 +101,7 @@ local move = false
 local update = false
 local temp_pos = {x = 0, y = 0}
 local paths = {}
-local debug_messages = true
+local debug_messages = false
 
 function apply_custom_style()
    local style = imgui.GetStyle()
