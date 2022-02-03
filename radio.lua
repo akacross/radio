@@ -101,7 +101,7 @@ local move = false
 local update = false
 local temp_pos = {x = 0, y = 0}
 local paths = {}
-local debug_messages = false
+local debug_messages = true
 
 function apply_custom_style()
    local style = imgui.GetStyle()
@@ -177,9 +177,23 @@ function main()
 	sampRegisterChatCommand("music", menu_command)
 	
 	if not radio.player.autoplay then
-		play_radio()
+		if radio.player.music_player == 1 then
+			radio.stationid = 1
+			radio_quickplay()
+		end
+		if radio.player.music_player == 2 or radio.player.music_player == 3 then
+			radio.musicid = 1
+			radio_quickplay()
+		end
 	else
-		radio.stationid = 0
+		if radio.player.music_player == 1 then
+			radio.stationid = 1
+			radio_quickplay()
+		end
+		if radio.player.music_player == 2 or radio.player.music_player == 3 then
+			radio.musicid = 1
+			radio_quickplay()
+		end
 	end
 	
 	for k, v in ipairs(radio.folders) do
@@ -422,7 +436,8 @@ function()
 			if imgui.Checkbox('##autoplay', new.bool(radio.player.autoplay)) then 
 				radio.player.autoplay = not radio.player.autoplay
 				if radio.player.autoplay then
-					radio.stationid = 0
+					radio.stationid = 1
+					radio_quickplay()
 				end
 			end 
 			if imgui.IsItemHovered() then
