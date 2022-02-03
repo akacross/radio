@@ -3,6 +3,7 @@ script_author("akacross")
 script_url("http://akacross.net/")
 
 local script_version = 1.0
+local script_version_text = '1.0'
 
 if getMoonloaderVersion() >= 27 then
 	require 'libstd.deps' {
@@ -87,6 +88,7 @@ local radio = {
 	},
 	player = {
 		music_player = 1,
+		autoplay = false,
 		pause_play = false,
 		stop = false,
 		volume = 1.0
@@ -174,126 +176,59 @@ function main()
 	sampRegisterChatCommand("radio", menu_command)
 	sampRegisterChatCommand("music", menu_command)
 	
-	radio.stationid = 0
+	if not radio.player.autoplay then
+		play_radio()
+	else
+		radio.stationid = 0
+	end
 	
 	for k, v in ipairs(radio.folders) do
 		paths = scanGameFolder(v.folder, paths)
 	end
 	
-	lua_thread.create(function() 
-		while true do wait(2000) 
-			if not radio.player.stop then
-				if radio.player.music_player == 1 then	
-					if radio.stationid == 0 then
-						radio.stationid = 1
-						
-						if radio_play ~= nil then
-							radio.player.pause_play = false
-							setAudioStreamState(radio_play, as_action.STOP)
-						end
-							
-						if radio.player.stop then
-							if radio_play ~= nil then
-								radio.player.pause_play = false
-								setAudioStreamState(radio_play, as_action.STOP)
-							end
-						else
-							radio.player.pause_play = true
-							radio.player.stop = false
-							play_radio()
-						end
-					end	
-					
+	lua_thread.create(function()
+		while true do wait(400) 
+			
+			if radio.player.music_player == 1 then	
+				if radio.stationid == 0 then
+					radio.stationid = 1
+					radio_quickplay()
+				end	
+				if radio.player.autoplay then
 					if radio_play ~= nil then
 						if getAudioStreamState(radio_play) == as_status.STOPPED then
 							radio.stationid = radio.stationid + 1
-							if radio_play ~= nil then
-								radio.player.pause_play = false
-								setAudioStreamState(radio_play, as_action.STOP)
-							end
-								
-							if radio.player.stop then
-								if radio_play ~= nil then
-									radio.player.pause_play = false
-									setAudioStreamState(radio_play, as_action.STOP)
-								end
-							else
-								radio.player.pause_play = true
-								radio.player.stop = false
-								play_radio()
-							end
+							radio_quickplay()
 						end
 					end
-					if radio.stationid >= table.maxn(radio.stations) + 1 then
-						radio.stationid = 1
-						
-						if radio_play ~= nil then
-							radio.player.pause_play = false
-							setAudioStreamState(radio_play, as_action.STOP)
-						end
-							
-						if radio.player.stop then
-							if radio_play ~= nil then
-								radio.player.pause_play = false
-								setAudioStreamState(radio_play, as_action.STOP)
-							end
-						else
-							radio.player.pause_play = true
-							radio.player.stop = false
-							play_radio()
-						end
-					end		
 				end
-				if radio.player.music_player == 2 or radio.player.music_player == 3 then
-					
+				if radio.stationid >= table.maxn(radio.stations) + 1 then
+					radio.stationid = 1
+					radio_quickplay()
+				end		
+			end
+			if radio.player.music_player == 2 or radio.player.music_player == 3 then
+				if radio.musicid == 0 then
+					radio.musicid = 1
+					radio_quickplay()
+				end	
+				if radio.player.autoplay then
 					if radio_play ~= nil then
 						if getAudioStreamState(radio_play) == as_status.STOPPED then
 							radio.musicid = radio.musicid + 1 
-							
-							if radio_play ~= nil then
-								radio.player.pause_play = false
-								setAudioStreamState(radio_play, as_action.STOP)
-							end
-							
-								
-							if radio.player.stop then
-								if radio_play ~= nil then
-									radio.player.pause_play = false
-									setAudioStreamState(radio_play, as_action.STOP)
-								end
-							else
-								radio.player.pause_play = true
-								radio.player.stop = false
-								play_radio()
-							end
-						end
-					end
-					if radio.musicid >= table.maxn(radio.music) + 1 then
-						radio.musicid = 1
-						
-						if radio_play ~= nil then
-							radio.player.pause_play = false
-							setAudioStreamState(radio_play, as_action.STOP)
-						end
-							
-						if radio.player.stop then
-							if radio_play ~= nil then
-								radio.player.pause_play = false
-								setAudioStreamState(radio_play, as_action.STOP)
-							end
-						else
-							radio.player.pause_play = true
-							radio.player.stop = false
-							play_radio()
+							radio_quickplay()
 						end
 					end
 				end
+				if radio.musicid >= table.maxn(radio.music) + 1 then
+					radio.musicid = 1
+					radio_quickplay()
+				end
 			end
-		end 
+		end
 	end)
 	
 	while true do wait(0)
-	
 		x, y = getCursorPos()
 		if move then	
 			if isKeyJustPressed(VK_LBUTTON) then 
@@ -315,7 +250,6 @@ function main()
 		end
 	end
 end
-
 
 function menu_command()
 	if not update then
@@ -360,9 +294,7 @@ function()
 	imgui.PushStyleColor(imgui.Col.WindowBg, imgui.ImVec4(r, g, b, a))
 	
 	imgui.Begin('radio', nil, imgui.WindowFlags.NoTitleBar + imgui.WindowFlags.NoResize + imgui.WindowFlags.NoSavedSettings)
-	
 		radio_player()
-		
 	imgui.End()
 	imgui.PopStyleColor()
 end).HideCursor = true
@@ -376,37 +308,27 @@ function()
 	imgui.SetNextWindowPos(imgui.ImVec2(width / 2, height / 2), imgui.Cond.FirstUseEver, imgui.ImVec2(0.5, 0.5))
 	imgui.SetNextWindowSize(imgui.ImVec2(500, 360), imgui.Cond.FirstUseEver)
 
-    imgui.Begin(faicons.ICON_PLAY .. string.format(" %s Settings %s - %s[%d] - Verison: %s", script.this.name, ti.ICON_SETTINGS, mnames[radio.player.music_player], radio.player.music_player, script_version), stations_menu, imgui.WindowFlags.NoResize + imgui.WindowFlags.NoSavedSettings + imgui.WindowFlags.MenuBar) 
+    imgui.Begin(faicons.ICON_PLAY .. string.format(" %s Settings %s - %s[%d] - Verison: %s", script.this.name, ti.ICON_SETTINGS, mnames[radio.player.music_player], radio.player.music_player, script_version_text), stations_menu, imgui.WindowFlags.NoResize + imgui.WindowFlags.NoSavedSettings + imgui.WindowFlags.MenuBar) 
 		
 		imgui.BeginMenuBar()
 			for i = 1, 4 do 
 				if imgui.MenuItemBool(u8(mnames[i])) then
 					radio.player.music_player = i
 					if i == 1 then
-						if not radio.player.pause_play and not radio.player.stop then
-							play_radio()
+						if radio.player.autoplay then
 							if radio_play ~= nil then
-								radio.player.pause_play = true
-								setAudioStreamState(radio_play, as_action.PLAY)
+								if getAudioStreamState(radio_play) == as_status.STOPPED then
+									radio_quickplay()
+								end
 							end
 						end
 					end
 					if i == 3 then
-						if not radio.player.pause_play and not radio.player.stop then
+						if radio.player.autoplay then
 							if radio_play ~= nil then
-								radio.player.pause_play = false
-								setAudioStreamState(radio_play, as_action.STOP)
-							end
-								
-							if radio.player.stop then
-								if radio_play ~= nil then
-									radio.player.pause_play = false
-									setAudioStreamState(radio_play, as_action.STOP)
+								if getAudioStreamState(radio_play) == as_status.STOPPED then
+									radio_quickplay()
 								end
-							else
-								radio.player.pause_play = true
-								radio.player.stop = false
-								play_radio()
 							end
 						end
 					end
@@ -496,6 +418,17 @@ function()
 		
 		
 		if radio.player.music_player == 1 then
+			
+			if imgui.Checkbox('##autoplay', new.bool(radio.player.autoplay)) then 
+				radio.player.autoplay = not radio.player.autoplay
+				if radio.player.autoplay then
+					radio.stationid = 0
+				end
+			end 
+			if imgui.IsItemHovered() then
+				imgui.SetTooltip('Autoplay')
+			end
+			imgui.SameLine()
 			radio_player()
 			imgui.SameLine()
 			if radio.stations[radio.stationid] ~= nil then
@@ -524,13 +457,8 @@ function()
 				
 				imgui.SameLine()
 				if imgui.Button('Play##'..k) then 
-					if radio_play ~= nil then
-						setAudioStreamState(radio_play, as_action.STOP)
-					end
-					radio.player.pause_play = true
-					radio.player.stop = false
 					radio.stationid = k
-					play_radio()
+					radio_quickplay()
 				end
 			
 				imgui.SameLine()
@@ -589,13 +517,23 @@ function()
 		end
 		if radio.player.music_player == 3 then
 			
+			if imgui.Checkbox('##autoplay', new.bool(radio.player.autoplay)) then 
+				radio.player.autoplay = not radio.player.autoplay
+				if radio.player.autoplay then
+					radio.musicid = 0
+				end
+			end 
+			if imgui.IsItemHovered() then
+				imgui.SetTooltip('Autoplay')
+			end
+			imgui.SameLine()
 			radio_player()
 			imgui.SameLine()			
 			
 			if radio.music[radio.musicid] ~= nil then
 				imgui.Text(string.format(" %s[%d]", radio.music[radio.musicid].name, radio.musicid))
 			else
-				imgui.Text('Empty[1]')
+				imgui.Text(string.format(" Empty[%d]", radio.musicid))
 			end
 			
 			for k, v in ipairs(radio.music) do
@@ -608,14 +546,8 @@ function()
 				
 				imgui.SameLine()
 				if imgui.Button('Play##'..k) then 
-					if radio_play ~= nil then
-						setAudioStreamState(radio_play, as_action.STOP)
-					end
-					radio.player.pause_play = true
-					radio.player.stop = false
 					radio.musicid = k
-
-					play_radio()
+					radio_quickplay()
 				end
 				
 				imgui.SameLine()
@@ -690,277 +622,42 @@ function()
     imgui.End()
 end)
 
-function radio_player()
-	if imgui.Button(faicons.ICON_STEP_BACKWARD) then
-		if radio.player.music_player == 1 then
-			if radio.stationid >= 1 and radio.stationid <= table.maxn(radio.stations) + 1 then
-				radio.stationid = radio.stationid - 1
-				if debug_messages then
-					print(radio.stationid)
-				end
-				if radio_play ~= nil then
-					radio.player.pause_play = false
-					setAudioStreamState(radio_play, as_action.STOP)
-				end
-					
-				if radio.player.stop then
-					if radio_play ~= nil then
-						radio.player.pause_play = false
-						setAudioStreamState(radio_play, as_action.STOP)
-					end
-				else
-					radio.player.pause_play = true
-					radio.player.stop = false
-					play_radio()
-				end
-			end
-				
-			if radio.stationid == 0 then
-				radio.stationid = table.maxn(radio.stations)
-				if debug_messages then
-					print(radio.stationid)
-				end
-				if radio_play ~= nil then
-					radio.player.pause_play = false
-					setAudioStreamState(radio_play, as_action.STOP)
-				end
-						
-				if radio.player.stop then
-					if radio_play ~= nil then
-						radio.player.pause_play = false
-						setAudioStreamState(radio_play, as_action.STOP)
-					end
-				else
-					radio.player.pause_play = true
-					radio.player.stop = false
-					play_radio()
-				end
-			end
-		end
-		if radio.player.music_player == 2 or radio.player.music_player == 3 then
-			if radio.musicid >= 1 and radio.musicid <= table.maxn(radio.music) then
-				radio.musicid = radio.musicid - 1
-				if debug_messages then
-					print(radio.musicid)
-				end
-				if radio_play ~= nil then
-					radio.player.pause_play = false
-					setAudioStreamState(radio_play, as_action.STOP)
-				end
-						
-				if radio.player.stop then
-					if radio_play ~= nil then
-						radio.player.pause_play = false
-						setAudioStreamState(radio_play, as_action.STOP)
-					end
-				else
-					radio.player.pause_play = true
-					radio.player.stop = false
-					play_radio()
-				end
-			end
-
-			if radio.musicid == 0 then
-				radio.musicid = table.maxn(radio.music)
-				if debug_messages then
-					print(radio.musicid)
-				end
-				if radio_play ~= nil then
-					radio.player.pause_play = false
-					setAudioStreamState(radio_play, as_action.STOP)
-				end
-						
-				if radio.player.stop then
-					if radio_play ~= nil then
-						radio.player.pause_play = false
-						setAudioStreamState(radio_play, as_action.STOP)
-					end
-				else
-					radio.player.pause_play = true
-					radio.player.stop = false
-					play_radio()
-				end
-			end
-		end
-	end
-	imgui.SameLine() 
-	if imgui.Button(not radio.player.stop and (radio.player.pause_play and faicons.ICON_PAUSE .. '##Pause' or faicons.ICON_PLAY .. '##Play') or faicons.ICON_PLAY) then
-		if radio.player.music_player == 1 then
-			if not radio.player.stop then
-				radio.player.pause_play = not radio.player.pause_play
-				if radio.player.pause_play then
-					if radio_play ~= nil then
-						radio.player.pause_play = true
-						setAudioStreamState(radio_play, as_action.PLAY)
-					end
-				else
-					if radio_play ~= nil then
-						radio.player.pause_play = false
-						setAudioStreamState(radio_play, as_action.PAUSE)
-					end
-				end
-			end
-		end
-			
-		if radio.player.music_player == 2 or radio.player.music_player == 3 then
-			if not radio.player.stop then
-				radio.player.pause_play = not radio.player.pause_play
-				if radio.player.pause_play then
-					if radio_play ~= nil then
-						radio.player.pause_play = true
-						setAudioStreamState(radio_play, as_action.RESUME)
-					end
-				else
-					if radio_play ~= nil then
-						radio.player.pause_play = false
-						setAudioStreamState(radio_play, as_action.PAUSE)
-					end
-				end
-			end
-		end
-	end 
-	imgui.SameLine() 
-	if imgui.Button(radio.player.stop and faicons.ICON_PLAY_CIRCLE or faicons.ICON_STOP) then
-		if radio.player.music_player == 1 then
-			radio.player.stop = not radio.player.stop
-			if radio.player.stop then
-				if radio_play ~= nil then
-					radio.player.pause_play = false
-					setAudioStreamState(radio_play, as_action.STOP)
-				end
-			else
-				radio.player.pause_play = true
-				play_radio()
-			end
-		end
-		if radio.player.music_player == 2 or radio.player.music_player == 3 then
-			radio.player.stop = not radio.player.stop
-			if radio.player.stop then
-				if radio_play ~= nil then
-					radio.player.pause_play = false
-					setAudioStreamState(radio_play, as_action.STOP)
-				end
-			else
-				radio.player.pause_play = true
-				play_radio()
-			end
-		end
-	end
-	imgui.SameLine() 
-	if imgui.Button(faicons.ICON_STEP_FORWARD) then
-		if radio.player.music_player == 1 then
-			if radio.stationid >= 1 and radio.stationid <= table.maxn(radio.stations) then
-				radio.stationid = radio.stationid + 1
-				if debug_messages then
-					print(radio.stationid)
-				end
-					
-				if radio_play ~= nil then
-					radio.player.pause_play = false
-					setAudioStreamState(radio_play, as_action.STOP)
-				end
-						
-				if radio.player.stop then
-					if radio_play ~= nil then
-						radio.player.pause_play = false
-						setAudioStreamState(radio_play, as_action.STOP)
-					end
-				else
-					radio.player.pause_play = true
-					radio.player.stop = false
-					play_radio()
-				end
-			end
-			if radio.stationid == table.maxn(radio.stations) + 1 then
-				radio.stationid = 1
-				if debug_messages then
-					print(radio.stationid)
-				end
-				if radio_play ~= nil then
-					radio.player.pause_play = false
-					setAudioStreamState(radio_play, as_action.STOP)
-				end
-						
-				if radio.player.stop then
-					if radio_play ~= nil then
-						radio.player.pause_play = false
-						setAudioStreamState(radio_play, as_action.STOP)
-					end
-				else
-					radio.player.pause_play = true
-					radio.player.stop = false
-					play_radio()
-				end
-			end
-		end
-		if radio.player.music_player == 2 or radio.player.music_player == 3 then
-			if radio.musicid >= 1 and radio.musicid <= table.maxn(radio.music) then
-				radio.musicid = radio.musicid + 1
-				if debug_messages then
-					print(radio.musicid)
-				end
-					
-				if radio_play ~= nil then
-					radio.player.pause_play = false
-					setAudioStreamState(radio_play, as_action.STOP)
-				end
-						
-				if radio.player.stop then
-					if radio_play ~= nil then
-						radio.player.pause_play = false
-						setAudioStreamState(radio_play, as_action.STOP)
-					end
-				else
-					radio.player.pause_play = true
-					radio.player.stop = false
-					play_radio()
-				end
-			end
-			if radio.musicid == table.maxn(radio.music) + 1 then
-				radio.musicid = 1
-				if debug_messages then
-					print(radio.musicid)
-				end
-				if radio_play ~= nil then
-					radio.player.pause_play = false
-					setAudioStreamState(radio_play, as_action.STOP)
-				end
-						
-				if radio.player.stop then
-					if radio_play ~= nil then
-						radio.player.pause_play = false
-						setAudioStreamState(radio_play, as_action.STOP)
-					end
-				else
-					radio.player.pause_play = true
-					radio.player.stop = false
-					play_radio()
-				end
-			end
-		end
-	end
-end
-
 function onWindowMessage(msg, wparam, lparam)
 	if msg == wm.WM_KILLFOCUS then
 		if radio.player.pause_play then
-			if radio_play ~= nil then
-				setAudioStreamState(radio_play, as_action.PAUSE)
+			if radio.player.music_player == 1 then
+				if radio_play ~= nil then
+					setAudioStreamState(radio_play, as_action.STOP)
+					if debug_messages then
+						print('radio.player.music_player == 1 WM_KILLFOCUS')
+					end
+				end
+			end
+			if radio.player.music_player >= 2 or radio.player.music_player <= 4 then
+				if radio_play ~= nil then
+					setAudioStreamState(radio_play, as_action.PAUSE)
+					if debug_messages then
+						print('radio.player.music_player >= 2 or radio.player.music_player <= 4 WM_KILLFOCUS')
+					end
+				end
 			end
 		end
 	elseif msg == wm.WM_SETFOCUS then
 		if radio.player.pause_play then
-			if radio_play ~= nil then
-				radio.player.pause_play = true
-				radio.player.stop = false
-				if radio.player.music_player == 1 then	
-					print('test')
-					setAudioStreamState(radio_play, as_action.STOP)
-					setAudioStreamState(radio_play, as_action.PLAY)
+			if radio.player.music_player == 1 then
+				radio_quickplay()
+				if debug_messages then
+					print('radio.player.music_player == 1 WM_SETFOCUS')
 				end
-				
-				if radio.player.music_player == 2 or radio.player.music_player == 3 or radio.player.music_player == 4 then	
+			end
+			if radio.player.music_player >= 2 or radio.player.music_player <= 4 then
+				if radio_play ~= nil then
+					radio.player.pause_play = true
+					radio.player.stop = false
 					setAudioStreamState(radio_play, as_action.RESUME)
+					if debug_messages then
+						print('radio.player.music_player >= 2 or radio.player.music_player <= 4 WM_SETFOCUS')
+					end
 				end
 			end
 		end
@@ -974,6 +671,17 @@ function onWindowMessage(msg, wparam, lparam)
             stations_menu[0] = false
         end
     end
+end
+
+function onScriptTerminate(scr, quitGame) 
+	if scr == script.this then 
+		if radio.autosave then 
+			if radio_play ~= nil then
+				releaseAudioStream(radio_play)
+			end
+			saveIni() 
+		end 
+	end
 end
 
 function sampev.onPlayAudioStream(url, position, radius, usePosition)
@@ -1015,6 +723,149 @@ function scanGameFolder(path, tables)
     return tables
 end
 
+function radio_quickplay()
+	if radio_play ~= nil then
+		radio.player.pause_play = false
+		setAudioStreamState(radio_play, as_action.STOP)
+	end
+						
+	if radio.player.stop then
+		if radio_play ~= nil then
+			radio.player.pause_play = false
+			setAudioStreamState(radio_play, as_action.STOP)
+		end
+	else
+		radio.player.pause_play = true
+		radio.player.stop = false
+		play_radio()
+	end
+end
+
+function radio_player()
+	if imgui.Button(faicons.ICON_STEP_BACKWARD) then
+		if radio.player.music_player == 1 then
+			if radio.stationid >= 1 and radio.stationid <= table.maxn(radio.stations) + 1 then
+				radio.stationid = radio.stationid - 1
+				if debug_messages then
+					print('ICON_STEP_BACKWARD stationid = '..radio.stationid)
+				end
+				radio_quickplay()
+			end
+				
+			if radio.stationid == 0 then
+				radio.stationid = table.maxn(radio.stations)
+				if debug_messages then
+					print('ICON_STEP_BACKWARD: stationid = '..radio.stationid)
+				end
+				radio_quickplay()
+			end
+		end
+		if radio.player.music_player == 2 or radio.player.music_player == 3 then
+			if radio.musicid >= 1 and radio.musicid <= table.maxn(radio.music) then
+				radio.musicid = radio.musicid - 1
+				if debug_messages then
+					print('ICON_STEP_BACKWARD: musicid = '..radio.musicid)
+				end
+				radio_quickplay()
+			end
+
+			if radio.musicid == 0 then
+				radio.musicid = table.maxn(radio.music)
+				if debug_messages then
+					print('ICON_STEP_BACKWARD: musicid = '..radio.musicid)
+				end
+				radio_quickplay()
+			end
+		end
+	end
+	imgui.SameLine() 
+	if imgui.Button(not radio.player.stop and (radio.player.pause_play and faicons.ICON_PAUSE .. '##Pause' or faicons.ICON_PLAY .. '##Play') or faicons.ICON_PLAY) then
+		if radio.player.music_player == 1 then
+			if not radio.player.stop then
+				radio.player.pause_play = not radio.player.pause_play
+				if radio.player.pause_play then
+					if radio_play ~= nil then
+						radio.player.pause_play = true
+						setAudioStreamState(radio_play, as_action.PLAY)
+						radio_quickplay()
+					end
+				else
+					if radio_play ~= nil then
+						radio.player.pause_play = false
+						setAudioStreamState(radio_play, as_action.PAUSE)
+					end
+				end
+			end
+		end
+			
+		if radio.player.music_player == 2 or radio.player.music_player == 3 then
+			if not radio.player.stop then
+				radio.player.pause_play = not radio.player.pause_play
+				if radio.player.pause_play then
+					if radio_play ~= nil then
+						radio.player.pause_play = true
+						setAudioStreamState(radio_play, as_action.RESUME)
+						radio_quickplay()
+					end
+				else
+					if radio_play ~= nil then
+						radio.player.pause_play = false
+						setAudioStreamState(radio_play, as_action.PAUSE)
+					end
+				end
+			end
+		end
+	end 
+	imgui.SameLine() 
+	if imgui.Button(radio.player.stop and faicons.ICON_PLAY_CIRCLE or faicons.ICON_STOP) then
+		if radio.player.music_player == 1 then
+			radio.player.stop = not radio.player.stop
+			radio_quickplay()
+		end
+		if radio.player.music_player == 2 or radio.player.music_player == 3 then
+			radio.player.stop = not radio.player.stop
+			radio_quickplay()
+		end
+	end
+	imgui.SameLine() 
+	if imgui.Button(faicons.ICON_STEP_FORWARD) then
+		if radio.player.music_player == 1 then
+			if radio.stationid >= 1 and radio.stationid <= table.maxn(radio.stations) then
+				radio.stationid = radio.stationid + 1
+				if debug_messages then
+					print('ICON_STEP_FORWARD: stationid = '..radio.stationid)
+				end
+					
+				radio_quickplay()
+			end
+			if radio.stationid == table.maxn(radio.stations) + 1 then
+				radio.stationid = 1
+				if debug_messages then
+					print('ICON_STEP_FORWARD: stationid = '..radio.stationid)
+				end
+				radio_quickplay()
+			end
+		end
+		if radio.player.music_player == 2 or radio.player.music_player == 3 then
+			if radio.musicid >= 1 and radio.musicid <= table.maxn(radio.music) then
+				radio.musicid = radio.musicid + 1
+				if debug_messages then
+					print('ICON_STEP_FORWARD: musicid = '..radio.musicid)
+				end
+					
+				radio_quickplay()
+			end
+			if radio.musicid == table.maxn(radio.music) + 1 then
+				radio.musicid = 1
+				if debug_messages then
+					print('ICON_STEP_FORWARD: musicid = '..radio.musicid)
+				end
+				radio_quickplay()
+			end
+		end
+	end
+end
+
 function play_radio()
 	if radio.player.music_player == 1 then
 		if radio.stations[radio.stationid] ~= nil then
@@ -1023,7 +874,7 @@ function play_radio()
 				downloadUrlToFile(radio.stations[radio.stationid].station, audiopath..'\\playlist'..radio.stationid, function(id, status)
 					if status == dlstatus.STATUS_BEGINDOWNLOADDATA then
 						if debug_messages then
-							print(radio.stations[radio.stationid].station)
+							print('play_radio() radio.player.music_player == 1 station = ' .. radio.stations[radio.stationid].station)
 						end
 						if radio_play ~= nil then
 							releaseAudioStream(radio_play)
@@ -1073,17 +924,6 @@ function play_radio()
 				end
 			end
 		end
-	end
-end
-
-function onScriptTerminate(scr, quitGame) 
-	if scr == script.this then 
-		if radio.autosave then 
-			if radio_play ~= nil then
-				releaseAudioStream(radio_play)
-			end
-			saveIni() 
-		end 
 	end
 end
 
