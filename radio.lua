@@ -1,4 +1,4 @@
-script_name("Radio")
+ script_name("Radio")
 script_author("akacross")
 script_url("http://akacross.net/")
 
@@ -181,7 +181,7 @@ function main()
 			radio.stationid = 1
 			radio_quickplay()
 		end
-		if radio.player.music_player == 2 or radio.player.music_player == 3 then
+		if radio.player.music_player >= 2 or radio.player.music_player <= 4 then
 			radio.musicid = 1
 			radio_quickplay()
 		end
@@ -190,7 +190,7 @@ function main()
 			radio.stationid = 1
 			radio_quickplay()
 		end
-		if radio.player.music_player == 2 or radio.player.music_player == 3 then
+		if radio.player.music_player >= 2 or radio.player.music_player <= 4 then
 			radio.musicid = 1
 			radio_quickplay()
 		end
@@ -208,7 +208,7 @@ function main()
 					radio.stationid = 1
 					radio_quickplay()
 				end	
-				if radio.player.autoplay then
+				if radio.player.autoplay and not radio.player.stop then
 					if radio_play ~= nil then
 						if getAudioStreamState(radio_play) == as_status.STOPPED then
 							radio.stationid = radio.stationid + 1
@@ -221,12 +221,12 @@ function main()
 					radio_quickplay()
 				end		
 			end
-			if radio.player.music_player == 2 or radio.player.music_player == 3 then
+			if radio.player.music_player >= 2 or radio.player.music_player <= 4 then
 				if radio.musicid == 0 then
 					radio.musicid = 1
 					radio_quickplay()
 				end	
-				if radio.player.autoplay then
+				if radio.player.autoplay and not radio.player.stop then
 					if radio_play ~= nil then
 						if getAudioStreamState(radio_play) == as_status.STOPPED then
 							radio.musicid = radio.musicid + 1 
@@ -329,7 +329,7 @@ function()
 				if imgui.MenuItemBool(u8(mnames[i])) then
 					radio.player.music_player = i
 					if i == 1 then
-						if radio.player.autoplay then
+						if radio.player.autoplay and not radio.player.pause_play then
 							if radio_play ~= nil then
 								if getAudioStreamState(radio_play) == as_status.STOPPED then
 									radio_quickplay()
@@ -338,7 +338,7 @@ function()
 						end
 					end
 					if i == 3 then
-						if radio.player.autoplay then
+						if radio.player.autoplay and not radio.player.pause_play then
 							if radio_play ~= nil then
 								if getAudioStreamState(radio_play) == as_status.STOPPED then
 									radio_quickplay()
@@ -648,7 +648,7 @@ function onWindowMessage(msg, wparam, lparam)
 					end
 				end
 			end
-			if radio.player.music_player >= 2 or radio.player.music_player <= 4 then
+			if radio.player.music_player >= 2 and radio.player.music_player <= 4 then
 				if radio_play ~= nil then
 					setAudioStreamState(radio_play, as_action.PAUSE)
 					if debug_messages then
@@ -752,7 +752,64 @@ function radio_quickplay()
 	else
 		radio.player.pause_play = true
 		radio.player.stop = false
-		play_radio()
+		if radio.player.music_player == 1 then
+			if radio.stations[radio.stationid] ~= nil then
+				if not radio.player.stop then
+					os.remove(audiopath..'\\playlist'..radio.stationid)
+					downloadUrlToFile(radio.stations[radio.stationid].station, audiopath..'\\playlist'..radio.stationid, function(id, status)
+						if status == dlstatus.STATUS_BEGINDOWNLOADDATA then
+							if debug_messages then
+								print('play_radio() radio.player.music_player == 1 station = ' .. radio.stations[radio.stationid].station)
+							end
+							if radio_play ~= nil then
+								releaseAudioStream(radio_play)
+							end
+							radio_play = loadAudioStream(radio.stations[radio.stationid].station)
+							if radio_play ~= nil then
+								setAudioStreamVolume(radio_play, radio.player.volume)
+							end
+								
+							if radio.player.pause_play then
+								if radio_play ~= nil then
+									setAudioStreamState(radio_play, as_action.PLAY)
+								end
+							else
+								if radio_play ~= nil then
+									setAudioStreamState(radio_play, as_action.PAUSE)
+								end
+							end
+							return true
+						end		
+					end)
+				end
+			end
+		end
+		if radio.player.music_player >= 2 and radio.player.music_player <= 4 then
+			if not radio.player.stop then
+				if radio.music[radio.musicid] ~= nil then
+					if doesFileExist(radio.music[radio.musicid].file) then
+					
+							if radio_play ~= nil then
+								releaseAudioStream(radio_play)
+							end
+							radio_play = loadAudioStream(radio.music[radio.musicid].file)
+							setAudioStreamVolume(radio_play, radio.player.volume)
+							
+						if radio.player.pause_play then
+							if radio_play ~= nil then
+								setAudioStreamState(radio_play, as_action.RESUME)
+							end
+						else
+							if radio_play ~= nil then
+								setAudioStreamState(radio_play, as_action.PAUSE)
+							end
+						end
+					else
+						sampAddChatMessage(string.format("{ABB2B9}[%s]{FFFFFF} Bad audio file detected!", script.this.name), -1)
+					end
+				end
+			end
+		end
 	end
 end
 
@@ -775,7 +832,7 @@ function radio_player()
 				radio_quickplay()
 			end
 		end
-		if radio.player.music_player == 2 or radio.player.music_player == 3 then
+		if radio.player.music_player >= 2 and radio.player.music_player <= 4 then
 			if radio.musicid >= 1 and radio.musicid <= table.maxn(radio.music) then
 				radio.musicid = radio.musicid - 1
 				if debug_messages then
@@ -813,7 +870,7 @@ function radio_player()
 			end
 		end
 			
-		if radio.player.music_player == 2 or radio.player.music_player == 3 then
+		if radio.player.music_player >= 2 and radio.player.music_player <= 4 then
 			if not radio.player.stop then
 				radio.player.pause_play = not radio.player.pause_play
 				if radio.player.pause_play then
@@ -861,7 +918,7 @@ function radio_player()
 				radio_quickplay()
 			end
 		end
-		if radio.player.music_player == 2 or radio.player.music_player == 3 then
+		if radio.player.music_player >= 2 and radio.player.music_player <= 4 then
 			if radio.musicid >= 1 and radio.musicid <= table.maxn(radio.music) then
 				radio.musicid = radio.musicid + 1
 				if debug_messages then
@@ -876,67 +933,6 @@ function radio_player()
 					print('ICON_STEP_FORWARD: musicid = '..radio.musicid)
 				end
 				radio_quickplay()
-			end
-		end
-	end
-end
-
-function play_radio()
-	if radio.player.music_player == 1 then
-		if radio.stations[radio.stationid] ~= nil then
-			if not radio.player.stop then
-				os.remove(audiopath..'\\playlist'..radio.stationid)
-				downloadUrlToFile(radio.stations[radio.stationid].station, audiopath..'\\playlist'..radio.stationid, function(id, status)
-					if status == dlstatus.STATUS_BEGINDOWNLOADDATA then
-						if debug_messages then
-							print('play_radio() radio.player.music_player == 1 station = ' .. radio.stations[radio.stationid].station)
-						end
-						if radio_play ~= nil then
-							releaseAudioStream(radio_play)
-						end
-						radio_play = loadAudioStream(radio.stations[radio.stationid].station)
-						if radio_play ~= nil then
-							setAudioStreamVolume(radio_play, radio.player.volume)
-						end
-							
-						if radio.player.pause_play then
-							if radio_play ~= nil then
-								setAudioStreamState(radio_play, as_action.PLAY)
-							end
-						else
-							if radio_play ~= nil then
-								setAudioStreamState(radio_play, as_action.PAUSE)
-							end
-						end
-						return true
-					end		
-				end)
-			end
-		end
-	end
-	if radio.player.music_player == 2 or radio.player.music_player == 3 then
-		if not radio.player.stop then
-			if radio.music[radio.musicid] ~= nil then
-				if doesFileExist(radio.music[radio.musicid].file) then
-				
-						if radio_play ~= nil then
-							releaseAudioStream(radio_play)
-						end
-						radio_play = loadAudioStream(radio.music[radio.musicid].file)
-						setAudioStreamVolume(radio_play, radio.player.volume)
-						
-					if radio.player.pause_play then
-						if radio_play ~= nil then
-							setAudioStreamState(radio_play, as_action.RESUME)
-						end
-					else
-						if radio_play ~= nil then
-							setAudioStreamState(radio_play, as_action.PAUSE)
-						end
-					end
-				else
-					sampAddChatMessage(string.format("{ABB2B9}[%s]{FFFFFF} Bad audio file detected!", script.this.name), -1)
-				end
 			end
 		end
 	end
