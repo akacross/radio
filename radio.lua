@@ -2,8 +2,8 @@
 script_author("akacross")
 script_url("http://akacross.net/")
 
-local script_version = 1.1
-local script_version_text = '1.1'
+local script_version = 1.2
+local script_version_text = '1.2'
 
 if getMoonloaderVersion() >= 27 then
 	require 'libstd.deps' {
@@ -95,70 +95,19 @@ local radio = {
 	},
 }
 
+local radioplayer = false
+local musicplayer = false
 local stations_menu = new.bool(false)
 local mainc = imgui.ImVec4(0.92, 0.27, 0.92, 1.0)
+local mnames = {'Radio', 'Music', 'Queue', 'Folders'}
 local move = false
 local update = false
+local inuse = false
+local selected = false
+local play_inuse = false
 local temp_pos = {x = 0, y = 0}
 local paths = {}
 local debug_messages = true
-
-function apply_custom_style()
-   local style = imgui.GetStyle()
-   local colors = style.Colors
-   local clr = imgui.Col
-   local ImVec4 = imgui.ImVec4
-   style.WindowRounding = 1.5
-   style.WindowTitleAlign = imgui.ImVec2(0.5, 0.5)
-   style.FrameRounding = 1.0
-   style.ItemSpacing = imgui.ImVec2(4.0, 4.0)
-   style.ScrollbarSize = 13.0
-   style.ScrollbarRounding = 0
-   style.GrabMinSize = 8.0
-   style.GrabRounding = 1.0
-   style.WindowBorderSize = 0.0
-   style.WindowPadding = imgui.ImVec2(4.0, 4.0)
-   style.FramePadding = imgui.ImVec2(2.5, 3.5)
-   style.ButtonTextAlign = imgui.ImVec2(0.5, 0.35)
- 
-   colors[clr.Text]                   = ImVec4(1.00, 1.00, 1.00, 1.00)
-   colors[clr.TextDisabled]           = ImVec4(0.7, 0.7, 0.7, 1.0)
-   colors[clr.WindowBg]               = ImVec4(0.07, 0.07, 0.07, 1.0)
-   colors[clr.PopupBg]                = ImVec4(0.08, 0.08, 0.08, 0.94)
-   colors[clr.Border]                 = ImVec4(mainc.x, mainc.y, mainc.z, 0.4)
-   colors[clr.BorderShadow]           = ImVec4(0.00, 0.00, 0.00, 0.00)
-   colors[clr.FrameBg]                = ImVec4(mainc.x, mainc.y, mainc.z, 0.7)
-   colors[clr.FrameBgHovered]         = ImVec4(mainc.x, mainc.y, mainc.z, 0.4)
-   colors[clr.FrameBgActive]          = ImVec4(mainc.x, mainc.y, mainc.z, 0.9)
-   colors[clr.TitleBg]                = ImVec4(mainc.x, mainc.y, mainc.z, 1.0)
-   colors[clr.TitleBgActive]          = ImVec4(mainc.x, mainc.y, mainc.z, 1.0)
-   colors[clr.TitleBgCollapsed]       = ImVec4(mainc.x, mainc.y, mainc.z, 0.79)
-   colors[clr.MenuBarBg]              = ImVec4(0.14, 0.14, 0.14, 1.00)
-   colors[clr.ScrollbarBg]            = ImVec4(0.02, 0.02, 0.02, 0.53)
-   colors[clr.ScrollbarGrab]          = ImVec4(mainc.x, mainc.y, mainc.z, 0.8)
-   colors[clr.ScrollbarGrabHovered]   = ImVec4(0.41, 0.41, 0.41, 1.00)
-   colors[clr.ScrollbarGrabActive]    = ImVec4(0.51, 0.51, 0.51, 1.00)
-   colors[clr.CheckMark]              = ImVec4(mainc.x + 0.13, mainc.y + 0.13, mainc.z + 0.13, 1.00)
-   colors[clr.SliderGrab]             = ImVec4(0.28, 0.28, 0.28, 1.00)
-   colors[clr.SliderGrabActive]       = ImVec4(0.35, 0.35, 0.35, 1.00)
-   colors[clr.Button]                 = ImVec4(mainc.x, mainc.y, mainc.z, 0.8)
-   colors[clr.ButtonHovered]          = ImVec4(mainc.x, mainc.y, mainc.z, 0.63)
-   colors[clr.ButtonActive]           = ImVec4(mainc.x, mainc.y, mainc.z, 1.0)
-   colors[clr.Header]                 = ImVec4(mainc.x, mainc.y, mainc.z, 0.6)
-   colors[clr.HeaderHovered]          = ImVec4(mainc.x, mainc.y, mainc.z, 0.43)
-   colors[clr.HeaderActive]           = ImVec4(mainc.x, mainc.y, mainc.z, 0.8)
-   colors[clr.Separator]              = colors[clr.Border]
-   colors[clr.SeparatorHovered]       = ImVec4(0.26, 0.59, 0.98, 0.78)
-   colors[clr.SeparatorActive]        = ImVec4(0.26, 0.59, 0.98, 1.00)
-   colors[clr.ResizeGrip]             = ImVec4(mainc.x, mainc.y, mainc.z, 0.8)
-   colors[clr.ResizeGripHovered]      = ImVec4(mainc.x, mainc.y, mainc.z, 0.63)
-   colors[clr.ResizeGripActive]       = ImVec4(mainc.x, mainc.y, mainc.z, 1.0)
-   colors[clr.PlotLines]              = ImVec4(0.61, 0.61, 0.61, 1.00)
-   colors[clr.PlotLinesHovered]       = ImVec4(1.00, 0.43, 0.35, 1.00)
-   colors[clr.PlotHistogram]          = ImVec4(0.90, 0.70, 0.00, 1.00)
-   colors[clr.PlotHistogramHovered]   = ImVec4(1.00, 0.60, 0.00, 1.00)
-   colors[clr.TextSelectedBg]         = ImVec4(0.26, 0.59, 0.98, 0.35)
-end
 
 function main()
 	blank = table.deepcopy(radio)
@@ -176,23 +125,14 @@ function main()
 	sampRegisterChatCommand("radio", menu_command)
 	sampRegisterChatCommand("music", menu_command)
 	
-	if not radio.player.autoplay then
+	if radio.player.autoplay then
 		if radio.player.music_player == 1 then
 			radio.stationid = 1
-			radio_quickplay()
+			playAudio()
 		end
 		if radio.player.music_player >= 2 or radio.player.music_player <= 4 then
 			radio.musicid = 1
-			radio_quickplay()
-		end
-	else
-		if radio.player.music_player == 1 then
-			radio.stationid = 1
-			radio_quickplay()
-		end
-		if radio.player.music_player >= 2 or radio.player.music_player <= 4 then
-			radio.musicid = 1
-			radio_quickplay()
+			playAudio()
 		end
 	end
 	
@@ -202,49 +142,67 @@ function main()
 	
 	lua_thread.create(function()
 		while true do wait(400) 
-			
-			if radio.player.music_player == 1 then	
-				if radio.stationid == 0 then
-					radio.stationid = 1
-					radio_quickplay()
-				end	
-				if radio.player.autoplay and not radio.player.stop then
-					if radio_play ~= nil then
-						if getAudioStreamState(radio_play) == as_status.STOPPED then
-							radio.stationid = radio.stationid + 1
-							radio_quickplay()
+			if not radio.player.stop then
+				if radio.player.music_player == 1 then	
+					if not musicplayer then
+						if radio.stationid == 0 then
+							radio.stationid = 1
+							playAudio()
+						end	
+						if radio.player.autoplay and not radio.player.stop and not play_inuse then
+							if radio_play ~= nil then
+								if getAudioStreamState(radio_play) == as_status.STOPPED then
+									print('loop pass stationid + 1')
+									radio.stationid = radio.stationid + 1
+									playAudio()
+								end
+							end
 						end
+						if radio.stationid >= table.maxn(radio.stations) + 1 then
+							radio.stationid = 1
+							playAudio()
+						end	
 					end
 				end
-				if radio.stationid >= table.maxn(radio.stations) + 1 then
-					radio.stationid = 1
-					radio_quickplay()
-				end		
-			end
-			if radio.player.music_player >= 2 or radio.player.music_player <= 4 then
-				if radio.musicid == 0 then
-					radio.musicid = 1
-					radio_quickplay()
-				end	
-				if radio.player.autoplay and not radio.player.stop then
-					if radio_play ~= nil then
-						if getAudioStreamState(radio_play) == as_status.STOPPED then
-							radio.musicid = radio.musicid + 1 
-							radio_quickplay()
+				if radio.player.music_player >= 2 and radio.player.music_player <= 4 then
+					if not radioplayer then
+						if radio.musicid == 0 then
+							print('if radio.musicid == 0 then loop pass musicid + 1')
+							radio.musicid = 1
+							playAudio()
+						end	
+						if radio.player.autoplay and not radio.player.stop then
+							if radio_play ~= nil then
+								if getAudioStreamState(radio_play) == as_status.STOPPED then
+									print('loop pass musicid + 1')
+									radio.musicid = radio.musicid + 1 
+									playAudio()
+								end
+							end
+						end
+					
+						if radio.musicid >= table.maxn(radio.music) + 1 then
+							print('radio.musicid >= table.maxn(radio.music) + 1 loop pass musicid + 1')
+							radio.musicid = 1
+							playAudio()
 						end
 					end
-				end
-				if radio.musicid >= table.maxn(radio.music) + 1 then
-					radio.musicid = 1
-					radio_quickplay()
 				end
 			end
 		end
 	end)
 	
 	while true do wait(0)
-		x, y = getCursorPos()
+	
+		if radio_play ~= nil then
+			if getAudioStreamState(radio_play) == as_status.STOPPED or getAudioStreamState(radio_play) == as_status.PAUSED then
+				radioplayer = false
+				musicplayer = false
+			end
+		end
+	
 		if move then	
+			x, y = getCursorPos()
 			if isKeyJustPressed(VK_LBUTTON) then 
 				move = false
 			elseif isKeyJustPressed(VK_ESCAPE) then
@@ -259,6 +217,7 @@ function main()
 			lua_thread.create(function() 
 				wait(20000) 
 				thisScript():reload()
+				blankIni()
 				update = false
 			end)
 		end
@@ -302,338 +261,418 @@ end)
 imgui.OnFrame(function() return radio.toggle and not isGamePaused() end,
 function()
 	imgui.SetNextWindowPos(imgui.ImVec2(radio.imgui.pos[1], radio.imgui.pos[2]))
-	imgui.SetNextWindowSize(imgui.ImVec2(radio.imgui.size[1], radio.imgui.size[2]))
+	--imgui.SetNextWindowSize(imgui.ImVec2(radio.imgui.size[1], radio.imgui.size[2]))
 	
 	local r, g, b, a = hex2rgba(radio.imgui.color[1])
 	imgui.PushStyleColor(imgui.Col.WindowBg, imgui.ImVec4(r, g, b, a))
 	
-	imgui.Begin('radio', nil, imgui.WindowFlags.NoTitleBar + imgui.WindowFlags.NoResize + imgui.WindowFlags.NoSavedSettings)
+	imgui.Begin('radio', nil, imgui.WindowFlags.NoTitleBar + imgui.WindowFlags.NoResize + imgui.WindowFlags.NoSavedSettings + imgui.WindowFlags.AlwaysAutoResize + imgui.WindowFlags.NoBackground)
 		radio_player()
 	imgui.End()
 	imgui.PopStyleColor()
 end).HideCursor = true
 
-local mnames = {'Radio', 'Music', 'Queue', 'Folders'}
-local string = ''
-
 imgui.OnFrame(function() return stations_menu[0] end,
 function()
+
 	local width, height = getScreenResolution()
 	imgui.SetNextWindowPos(imgui.ImVec2(width / 2, height / 2), imgui.Cond.FirstUseEver, imgui.ImVec2(0.5, 0.5))
-	imgui.SetNextWindowSize(imgui.ImVec2(500, 360), imgui.Cond.FirstUseEver)
+	imgui.SetNextWindowSize(imgui.ImVec2(723, 420), imgui.Cond.FirstUseEver)
 
-    imgui.Begin(faicons.ICON_PLAY .. string.format(" %s Settings %s - %s[%d] - Verison: %s", script.this.name, ti.ICON_SETTINGS, mnames[radio.player.music_player], radio.player.music_player, script_version_text), stations_menu, imgui.WindowFlags.NoResize + imgui.WindowFlags.NoSavedSettings + imgui.WindowFlags.MenuBar) 
-		
-		imgui.BeginMenuBar()
-			for i = 1, 4 do 
-				if imgui.MenuItemBool(u8(mnames[i])) then
-					radio.player.music_player = i
-					if i == 1 then
-						if radio.player.autoplay and not radio.player.pause_play then
-							if radio_play ~= nil then
-								if getAudioStreamState(radio_play) == as_status.STOPPED then
-									radio_quickplay()
-								end
-							end
-						end
-					end
-					if i == 3 then
-						if radio.player.autoplay and not radio.player.pause_play then
-							if radio_play ~= nil then
-								if getAudioStreamState(radio_play) == as_status.STOPPED then
-									radio_quickplay()
-								end
-							end
-						end
-					end
-				end
-			end
-		imgui.EndMenuBar()
-		
-		if imgui.Checkbox(radio.toggle and 'ON' or 'OFF', new.bool(radio.toggle)) then 
-			radio.toggle = not radio.toggle
-		end 
-		imgui.SameLine() 
-		if imgui.Button(ti.ICON_DEVICE_FLOPPY.. 'Save') then
-			saveIni()
-		end 
-		if imgui.IsItemHovered() then
-			imgui.SetTooltip('Save the Script')
-		end
-		imgui.SameLine()
-		if imgui.Checkbox('##autosave', new.bool(radio.autosave)) then 
-			radio.autosave = not radio.autosave 
-			saveIni() 
-		end
-		if imgui.IsItemHovered() then
-			imgui.SetTooltip('Autosave')
-		end
-		imgui.SameLine()
-		if imgui.Button(ti.ICON_FILE_UPLOAD.. 'Load') then
-			loadIni()
-		end 
-		if imgui.IsItemHovered() then
-			imgui.SetTooltip('Reload the Script')
-		end
-		imgui.SameLine()
-		if imgui.Button(ti.ICON_ERASER .. 'Reset') then
-			blankIni()
-		end 
-		if imgui.IsItemHovered() then
-			imgui.SetTooltip('Reset the Script to default settings')
-		end
-		imgui.SameLine()
-		if imgui.Button(ti.ICON_REFRESH .. 'Update') then
-			update_script()
-		end 
-		if imgui.IsItemHovered() then
-			imgui.SetTooltip('Update the script')
-		end
-		imgui.SameLine()
-		if imgui.Checkbox('##autoupdate', new.bool(radio.autoupdate)) then 
-			radio.autoupdate = not radio.autoupdate 
-		end
-		if imgui.IsItemHovered() then
-			imgui.SetTooltip('Auto-Update')
-		end
-		
-		imgui.SameLine()
-		
-		imgui.PushItemWidth(100)
-		local volume = new.float[1](radio.player.volume)
-		if imgui.SliderFloat(u8'##Volume', volume, 0, 1) then
-			radio.player.volume = volume[0]
-			if radio_play ~= nil then
-				setAudioStreamVolume(radio_play, radio.player.volume)
-			end
-		end
-		imgui.PopItemWidth()
-		
-		if imgui.IsItemHovered() then
-			imgui.SetTooltip('Volume Control')
-		end
-		
-		imgui.SameLine()
-		
-		if imgui.Button(move and u8"Undo##" or u8"Move##") then
-			move = not move
-			if move then
-				sampAddChatMessage(string.format('%s: Press {FF0000}%s {FFFFFF}to save the pos.', script.this.name, vk.id_to_name(VK_LBUTTON)), -1) 
-				temp_pos.x = radio.imgui.pos[1]
-				temp_pos.y = radio.imgui.pos[2]
-				move = true
-			else
-				radio.imgui.pos[1] = temp_pos.x
-				radio.imgui.pos[2] = temp_pos.y
-				move = false
-			end
-		end
-		
-		
-		
-		if radio.player.music_player == 1 then
+    imgui.Begin(faicons.ICON_PLAY .. string.format(" %s Settings %s - Verison: %s", script.this.name, ti.ICON_SETTINGS, script_version_text), stations_menu, imgui.WindowFlags.NoResize + imgui.WindowFlags.NoSavedSettings + imgui.WindowFlags.AlwaysAutoResize) 		
+		imgui.BeginChild("##1", imgui.ImVec2(85, 392), true)
 			
-			if imgui.Checkbox('##autoplay', new.bool(radio.player.autoplay)) then 
-				radio.player.autoplay = not radio.player.autoplay
-				if radio.player.autoplay then
-					radio.stationid = 1
-					radio_quickplay()
-				end
-			end 
+			imgui.SetCursorPos(imgui.ImVec2(5, 5))
+      
+			if imgui.CustomButton(
+				faicons.ICON_POWER_OFF, 
+				radio.toggle and imgui.ImVec4(0.15, 0.59, 0.18, 0.7) or imgui.ImVec4(1, 0.19, 0.19, 0.5), 
+				radio.toggle and imgui.ImVec4(0.15, 0.59, 0.18, 0.5) or imgui.ImVec4(1, 0.19, 0.19, 0.3), 
+				radio.toggle and imgui.ImVec4(0.15, 0.59, 0.18, 0.4) or imgui.ImVec4(1, 0.19, 0.19, 0.2), 
+				imgui.ImVec2(75, 75)) then
+				radio.toggle = not radio.toggle
+			end
 			if imgui.IsItemHovered() then
-				imgui.SetTooltip('Autoplay')
-			end
-			imgui.SameLine()
-			radio_player()
-			imgui.SameLine()
-			if radio.stations[radio.stationid] ~= nil then
-				imgui.Text(string.format(" %s[%d]", radio.stations[radio.stationid].name, radio.stationid))
-			else
-				imgui.Text(string.format(" Empty[%d]", radio.stationid))
+				imgui.SetTooltip('Toggles Radio Buttons')
 			end
 		
-			for k, v in ipairs(radio.stations) do
+			imgui.SetCursorPos(imgui.ImVec2(5, 81))
+
+			if imgui.CustomButton(
+				faicons.ICON_FLOPPY_O,
+				imgui.ImVec4(0.16, 0.16, 0.16, 0.9), 
+				imgui.ImVec4(0.40, 0.12, 0.12, 1), 
+				imgui.ImVec4(0.30, 0.08, 0.08, 1), 
+				imgui.ImVec2(75, 75)) then
+				saveIni()
+			end
+			if imgui.IsItemHovered() then
+				imgui.SetTooltip('Save the Script')
+			end
+      
+			imgui.SetCursorPos(imgui.ImVec2(5, 157))
+
+			if imgui.CustomButton(
+				faicons.ICON_REPEAT, 
+				imgui.ImVec4(0.16, 0.16, 0.16, 0.9), 
+				imgui.ImVec4(0.40, 0.12, 0.12, 1), 
+				imgui.ImVec4(0.30, 0.08, 0.08, 1), 
+				imgui.ImVec2(75, 75)) then
+				loadIni()
+			end
+			if imgui.IsItemHovered() then
+				imgui.SetTooltip('Reload the Script')
+			end
+
+			imgui.SetCursorPos(imgui.ImVec2(5, 233))
+
+			if imgui.CustomButton(
+				faicons.ICON_ERASER, 
+				imgui.ImVec4(0.16, 0.16, 0.16, 0.9), 
+				imgui.ImVec4(0.40, 0.12, 0.12, 1), 
+				imgui.ImVec4(0.30, 0.08, 0.08, 1), 
+				imgui.ImVec2(75, 75)) then
+				blankIni()
+			end
+			if imgui.IsItemHovered() then
+				imgui.SetTooltip('Reset the Script to default settings')
+			end
+
+			imgui.SetCursorPos(imgui.ImVec2(5, 309))
+
+			if imgui.CustomButton(
+				faicons.ICON_RETWEET .. ' Update',
+				imgui.ImVec4(0.16, 0.16, 0.16, 0.9), 
+				imgui.ImVec4(0.40, 0.12, 0.12, 1), 
+				imgui.ImVec4(0.30, 0.08, 0.08, 1),  
+				imgui.ImVec2(75, 75)) then
+				update_script()
+			end
+			if imgui.IsItemHovered() then
+				imgui.SetTooltip('Update the script')
+			end
+      
+		imgui.EndChild()
+		
+		imgui.SetCursorPos(imgui.ImVec2(92, 28))
+
+		imgui.BeginChild("##2", imgui.ImVec2(510, 88), true)
+      
+			imgui.SetCursorPos(imgui.ImVec2(5,5))
+			if imgui.CustomButton(faicons.ICON_MUSIC .. '  Radio',
+				radio.player.music_player == 1 and imgui.ImVec4(0.56, 0.16, 0.16, 1) or imgui.ImVec4(0.16, 0.16, 0.16, 0.9),
+				imgui.ImVec4(0.40, 0.12, 0.12, 1), 
+				imgui.ImVec4(0.30, 0.08, 0.08, 1), 
+				imgui.ImVec2(125, 75)) then
+				radio.player.music_player = 1
+			end
+
+			imgui.SetCursorPos(imgui.ImVec2(131, 5))
+			  
+			if imgui.CustomButton(faicons.ICON_FOLDER_OPEN .. '  Queue',
+				radio.player.music_player == 2 and imgui.ImVec4(0.56, 0.16, 0.16, 1) or imgui.ImVec4(0.16, 0.16, 0.16, 0.9),
+				imgui.ImVec4(0.40, 0.12, 0.12, 1), 
+				imgui.ImVec4(0.30, 0.08, 0.08, 1), 
+				imgui.ImVec2(125, 75)) then
+			  
+				radio.player.music_player = 2
+			end
+
+			imgui.SetCursorPos(imgui.ImVec2(257, 5))
+
+			if imgui.CustomButton(faicons.ICON_MUSIC .. '  Music',
+				radio.player.music_player == 3 and imgui.ImVec4(0.56, 0.16, 0.16, 1) or imgui.ImVec4(0.16, 0.16, 0.16, 0.9),
+				imgui.ImVec4(0.40, 0.12, 0.12, 1), 
+				imgui.ImVec4(0.30, 0.08, 0.08, 1), 
+				imgui.ImVec2(125, 75)) then
+			  
+				radio.player.music_player = 3
+			end
+
+			imgui.SetCursorPos(imgui.ImVec2(383, 5))
+
+			if imgui.CustomButton(faicons.ICON_FOLDER .. '  Folders',
+				radio.player.music_player == 4 and imgui.ImVec4(0.56, 0.16, 0.16, 1) or imgui.ImVec4(0.16, 0.16, 0.16, 0.9),
+				imgui.ImVec4(0.40, 0.12, 0.12, 1), 
+				imgui.ImVec4(0.30, 0.08, 0.08, 1), 
+				imgui.ImVec2(125, 75)) then
+			  
+				radio.player.music_player = 4
+			end
+		imgui.EndChild()
+		
+		imgui.SetCursorPos(imgui.ImVec2(92, 112))
+		imgui.BeginChild("##3", imgui.ImVec2(510, 276), true)
+		
+			if radio.player.music_player == 1 then
 				
-				text = new.char[256](v.station)
-				imgui.PushItemWidth(325)
-				if imgui.InputText('##font'..k, text, sizeof(text), imgui.InputTextFlags.EnterReturnsTrue) then
-					v.station = u8:decode(str(text))
-				end
-				imgui.PopItemWidth()
-				
+				radio_player()
 				imgui.SameLine()
 				
-				imgui.PushItemWidth(95)
-				text = new.char[256](v.name)
-				if imgui.InputText('##name'..k, text, sizeof(text), imgui.InputTextFlags.EnterReturnsTrue) then
-					v.name = u8:decode(str(text))
-				end
-				imgui.PopItemWidth()
-				
-				imgui.SameLine()
-				if imgui.Button('Play##'..k) then 
-					radio.stationid = k
-					radio_quickplay()
-				end
-			
-				imgui.SameLine()
-				if k ~= 1 then
-					if imgui.Button(u8"x##"..k) then
-						table.remove(radio.stations, k)
-						radio.stationid = 1
-						os.remove(audiopath..'\\playlist'..k)
-					end
-				else
-					if imgui.Button(u8"+") then
-						radio.stations[#radio.stations + 1] = {
-							station = 'url here',
-							name = 'name of radio',
-						}
-						
-						for k, v in ipairs(radio.stations) do
-							local id = table.maxn(radio.stations)
-							if k == id then
-								if debug_messages then
-									print(k..' - '..table.maxn(radio.stations))
-								end
+				if imgui.Checkbox('##autoplay', new.bool(radio.player.autoplay)) then 
+					radio.player.autoplay = not radio.player.autoplay
+					if radio.player.autoplay then
+						if not radioplayer then 
+							if not musicplayer then
+								radio.stationid = 1
+								playAudio()
 							end
 						end
 					end
+				end 
+				if imgui.IsItemHovered() then
+					imgui.SetTooltip('Autoplay')
 				end
-			end
-		end
-		if radio.player.music_player == 2 then
-		
-			for k, v in pairs(paths) do
-				k = tostring(k)
-				if k:match(".+%.mp3") or k:match(".+%.mp4") or k:match(".+%.wav") or k:match(".+%.m4a") or k:match(".+%.flac") or k:match(".+%.m4r") or k:match(".+%.ogg") or k:match(".+%.mp2") or
-					k:match(".+%.amr") or k:match(".+%.wma") or k:match(".+%.aac") or k:match(".+%.aiff") then
+				imgui.SameLine()
+				if radio.stations[radio.stationid] ~= nil then
+					imgui.Text(string.format(" %s[%d]", radio.stations[radio.stationid].name, radio.stationid))
+				else
+					imgui.Text(string.format(" Empty[%d]", radio.stationid))
+				end
+			
+				for k, v in ipairs(radio.stations) do
 					
-					imgui.Text(u8(k))
+					text = new.char[256](v.station)
+					imgui.PushItemWidth(325)
+					if imgui.InputText('##font'..k, text, sizeof(text), imgui.InputTextFlags.EnterReturnsTrue) then
+						v.station = u8:decode(str(text))
+					end
+					imgui.PopItemWidth()
+					
 					imgui.SameLine()
 					
-					if imgui.Button('Add to Queue##'..k) then 
-						radio.music[#radio.music + 1] = {
-							file = v,
-							name = k,
-						}
-						radio.musicid = 1
-						for k, v in ipairs(radio.music) do
-							local id = table.maxn(radio.music)
-							if k == id then
-								if debug_messages then
-									print(k..' - '..table.maxn(radio.music))
+					imgui.PushItemWidth(95)
+					text = new.char[256](v.name)
+					if imgui.InputText('##name'..k, text, sizeof(text), imgui.InputTextFlags.EnterReturnsTrue) then
+						v.name = u8:decode(str(text))
+					end
+					imgui.PopItemWidth()
+					
+					imgui.SameLine()
+					if imgui.Button('Play##'..k) then 
+						play_inuse = true
+						radio.stationid = k
+						playAudio()
+						musicplayer = false
+						lua_thread.create(function()
+							wait(2000)
+							play_inuse = false
+						end)
+					end
+				
+					imgui.SameLine()
+					if k ~= 1 then
+						if imgui.Button(u8"x##"..k) then
+							table.remove(radio.stations, k)
+							radio.stationid = 1
+							os.remove(audiopath..'\\playlist'..k)
+						end
+					else
+						if imgui.Button(u8"+") then
+							radio.stations[#radio.stations + 1] = {
+								station = 'url here',
+								name = 'name of radio',
+							}
+							
+							for k, v in ipairs(radio.stations) do
+								local id = table.maxn(radio.stations)
+								if k == id then
+									if debug_messages then
+										print(k..' - '..table.maxn(radio.stations))
+									end
 								end
 							end
 						end
-					end	
-				end 
-			end
-		end
-		if radio.player.music_player == 3 then
-			
-			if imgui.Checkbox('##autoplay', new.bool(radio.player.autoplay)) then 
-				radio.player.autoplay = not radio.player.autoplay
-				if radio.player.autoplay then
-					radio.musicid = 0
-				end
-			end 
-			if imgui.IsItemHovered() then
-				imgui.SetTooltip('Autoplay')
-			end
-			imgui.SameLine()
-			radio_player()
-			imgui.SameLine()			
-			
-			if radio.music[radio.musicid] ~= nil then
-				imgui.Text(string.format(" %s[%d]", radio.music[radio.musicid].name, radio.musicid))
-			else
-				imgui.Text(string.format(" Empty[%d]", radio.musicid))
-			end
-			
-			for k, v in ipairs(radio.music) do
-				imgui.PushItemWidth(200)
-				text = new.char[256](v.name)
-				if imgui.InputText('##name'..k, text, sizeof(text), imgui.InputTextFlags.EnterReturnsTrue) then
-					v.name = u8:decode(str(text))
-				end
-				imgui.PopItemWidth()
-				
-				imgui.SameLine()
-				if imgui.Button('Play##'..k) then 
-					radio.musicid = k
-					radio_quickplay()
-				end
-				
-				imgui.SameLine()
-				if imgui.Button(u8"x##"..k) then
-					table.remove(radio.music, k)
-				end
-			end
-		end
-		if radio.player.music_player == 4 then
-		
-			if imgui.Button(u8"Sync") then
-				local new = {}
-				for k, v in ipairs(radio.folders) do
-					paths = scanGameFolder(v.folder, new)
-				end
-			end
-			imgui.SameLine()
-			if imgui.Button(u8"Reset") then
-				for k,v in pairs(paths) do
-					paths[k] = nil
-				end
-			end
-			imgui.SameLine()
-			if imgui.Button(u8"Merge") then
-				for k, v in ipairs(radio.folders) do
-					paths = scanGameFolder(v.folder, paths)
-				end
-			end
-		
-			for k, v in ipairs(radio.folders) do
-				imgui.PushItemWidth(350)
-				text = new.char[256](v.folder)
-				if imgui.InputText('##name21'..k, text, sizeof(text), imgui.InputTextFlags.EnterReturnsTrue) then
-					v.folder = u8:decode(str(text))
-				end
-				imgui.PopItemWidth()
-				
-				imgui.SameLine()
-				
-				imgui.PushItemWidth(100)
-				text = new.char[256](v.name)
-				if imgui.InputText('##name11'..k, text, sizeof(text), imgui.InputTextFlags.EnterReturnsTrue) then
-					v.name = u8:decode(str(text))
-				end
-				imgui.PopItemWidth()
-				
-				imgui.SameLine()
-				if k ~= 1 then
-					if imgui.Button(u8"x##"..k) then
-						table.remove(radio.folders, k)
 					end
-				else
-					if imgui.Button(u8"+") then
-						radio.folders[#radio.folders + 1] = {
-							folder = 'path here',
-							name = 'name of path',
-						}
+				end
+			end
+			if radio.player.music_player == 2 then
+			
+				for k, v in pairs(paths) do
+					k = tostring(k)
+					if k:match(".+%.mp3") or k:match(".+%.mp4") or k:match(".+%.wav") or k:match(".+%.m4a") or k:match(".+%.flac") or k:match(".+%.m4r") or k:match(".+%.ogg") or k:match(".+%.mp2") or
+						k:match(".+%.amr") or k:match(".+%.wma") or k:match(".+%.aac") or k:match(".+%.aiff") then
 						
-						for k, v in ipairs(radio.folders) do
-							local id = table.maxn(radio.folders)
-							if k == id then
-								if debug_messages then
-									print(k..' - '..table.maxn(radio.folders))
+						imgui.Text(u8(k))
+						imgui.SameLine()
+						
+						if imgui.Button('Add to Queue##'..k) then 
+							radio.music[#radio.music + 1] = {
+								file = v,
+								name = k,
+							}
+							radio.musicid = 1
+							for k, v in ipairs(radio.music) do
+								local id = table.maxn(radio.music)
+								if k == id then
+									if debug_messages then
+										print(k..' - '..table.maxn(radio.music))
+									end
+								end
+							end
+						end	
+					end 
+				end
+			end
+			if radio.player.music_player == 3 then
+				
+				radio_player()
+				imgui.SameLine()			
+				if imgui.Checkbox('##autoplay', new.bool(radio.player.autoplay)) then 
+					radio.player.autoplay = not radio.player.autoplay
+					if radio.player.autoplay then
+						if not musicplayer then 
+							if not radioplayer then
+								radio.musicid = 0
+							end
+						end
+					end
+				end 
+				if imgui.IsItemHovered() then
+					imgui.SetTooltip('Autoplay')
+				end
+				imgui.SameLine()
+				if radio.music[radio.musicid] ~= nil then
+					imgui.Text(string.format(" %s[%d]", radio.music[radio.musicid].name, radio.musicid))
+				else
+					imgui.Text(string.format(" Empty[%d]", radio.musicid))
+				end
+				
+				for k, v in ipairs(radio.music) do
+					imgui.PushItemWidth(200)
+					text = new.char[256](v.name)
+					if imgui.InputText('##name'..k, text, sizeof(text), imgui.InputTextFlags.EnterReturnsTrue) then
+						v.name = u8:decode(str(text))
+					end
+					imgui.PopItemWidth()
+					
+					imgui.SameLine()
+					if imgui.Button('Play##'..k) then 
+						radio.musicid = k
+						playAudio()
+						radioplayer = false
+					end
+					
+					imgui.SameLine()
+					if imgui.Button(u8"x##"..k) then
+						table.remove(radio.music, k)
+					end
+				end
+			end
+			if radio.player.music_player == 4 then
+			
+				if imgui.Button(u8"Sync") then
+					local new = {}
+					for k, v in ipairs(radio.folders) do
+						paths = scanGameFolder(v.folder, new)
+					end
+				end
+				imgui.SameLine()
+				if imgui.Button(u8"Reset") then
+					for k,v in pairs(paths) do
+						paths[k] = nil
+					end
+				end
+				imgui.SameLine()
+				if imgui.Button(u8"Merge") then
+					for k, v in ipairs(radio.folders) do
+						paths = scanGameFolder(v.folder, paths)
+					end
+				end
+			
+				for k, v in ipairs(radio.folders) do
+					imgui.PushItemWidth(360)
+					text = new.char[256](v.folder)
+					if imgui.InputText('##name21'..k, text, sizeof(text), imgui.InputTextFlags.EnterReturnsTrue) then
+						v.folder = u8:decode(str(text))
+					end
+					imgui.PopItemWidth()
+					
+					imgui.SameLine()
+					
+					imgui.PushItemWidth(100)
+					text = new.char[256](v.name)
+					if imgui.InputText('##name11'..k, text, sizeof(text), imgui.InputTextFlags.EnterReturnsTrue) then
+						v.name = u8:decode(str(text))
+					end
+					imgui.PopItemWidth()
+					
+					imgui.SameLine()
+					if k ~= 1 then
+						if imgui.Button(u8"x##"..k) then
+							table.remove(radio.folders, k)
+						end
+					else
+						if imgui.Button(u8"+") then
+							radio.folders[#radio.folders + 1] = {
+								folder = 'path here',
+								name = 'name of path',
+							}
+							
+							for k, v in ipairs(radio.folders) do
+								local id = table.maxn(radio.folders)
+								if k == id then
+									if debug_messages then
+										print(k..' - '..table.maxn(radio.folders))
+									end
 								end
 							end
 						end
 					end
 				end
 			end
-		end
+		imgui.EndChild()
+		imgui.SetCursorPos(imgui.ImVec2(92, 384))
 		
+		imgui.BeginChild("##5", imgui.ImVec2(510, 36), true)
+		
+			if imgui.Checkbox('Autosave', new.bool(radio.autosave)) then 
+				radio.autosave = not radio.autosave 
+				saveIni() 
+			end
+			if imgui.IsItemHovered() then
+				imgui.SetTooltip('Autosave')
+			end
+			imgui.SameLine()
+			if imgui.Checkbox('Auto-Update', new.bool(radio.autoupdate)) then 
+				radio.autoupdate = not radio.autoupdate 
+			end
+			if imgui.IsItemHovered() then
+				imgui.SetTooltip('Auto-Update')
+			end
+			
+			imgui.SameLine()
+			
+			imgui.PushItemWidth(150)
+			local volume = new.float[1](radio.player.volume)
+			if imgui.SliderFloat(u8'##Volume', volume, 0, 1) then
+				radio.player.volume = volume[0]
+				if radio_play ~= nil then
+					setAudioStreamVolume(radio_play, radio.player.volume)
+				end
+			end
+			imgui.PopItemWidth()
+			
+			if imgui.IsItemHovered() then
+				imgui.SetTooltip('Volume Control')
+			end
+			
+			imgui.SameLine()
+			
+			if imgui.Button(move and u8"Undo##" or u8"Move##") then
+				move = not move
+				if move then
+					sampAddChatMessage(string.format('%s: Press {FF0000}%s {FFFFFF}to save the pos.', script.this.name, vk.id_to_name(VK_LBUTTON)), -1) 
+					temp_pos.x = radio.imgui.pos[1]
+					temp_pos.y = radio.imgui.pos[2]
+					move = true
+				else
+					radio.imgui.pos[1] = temp_pos.x
+					radio.imgui.pos[2] = temp_pos.y
+					move = false
+				end
+			end
+		imgui.EndChild()
     imgui.End()
 end)
 
@@ -641,39 +680,82 @@ function onWindowMessage(msg, wparam, lparam)
 	if msg == wm.WM_KILLFOCUS then
 		if radio.player.pause_play then
 			if radio.player.music_player == 1 then
-				if radio_play ~= nil then
-					setAudioStreamState(radio_play, as_action.STOP)
-					if debug_messages then
-						print('radio.player.music_player == 1 WM_KILLFOCUS')
+				if not musicplayer then
+					if radio_play ~= nil then
+						play_inuse = true
+						setAudioStreamState(radio_play, as_action.STOP)
+						if debug_messages then
+							print('Radio WM_KILLFOCUS')
+						end
+					else
+						if radio_play ~= nil then
+							play_inuse = true
+							setAudioStreamState(radio_play, as_action.PAUSE)
+							if debug_messages then
+								print('Music WM_KILLFOCUS')
+							end
+						end
 					end
 				end
 			end
 			if radio.player.music_player >= 2 and radio.player.music_player <= 4 then
 				if radio_play ~= nil then
+					play_inuse = true
 					setAudioStreamState(radio_play, as_action.PAUSE)
 					if debug_messages then
-						print('radio.player.music_player >= 2 or radio.player.music_player <= 4 WM_KILLFOCUS')
+						print('Music WM_KILLFOCUS')
 					end
 				end
+			end
+		else
+			if radio_play ~= nil then
+				releaseAudioStream(radio_play)
 			end
 		end
 	elseif msg == wm.WM_SETFOCUS then
 		if radio.player.pause_play then
 			if radio.player.music_player == 1 then
-				radio_quickplay()
-				if debug_messages then
-					print('radio.player.music_player == 1 WM_SETFOCUS')
+				if not musicplayer then
+					playAudio()
+					lua_thread.create(function()
+						wait(2000)
+						play_inuse = false
+					end)
+					if debug_messages then
+						print('radio WM_SETFOCUS')
+					end
+				else
+					if radio_play ~= nil then
+						radio.player.pause_play = true
+						radio.player.stop = false
+						setAudioStreamState(radio_play, as_action.RESUME)
+						lua_thread.create(function()
+							wait(2000)
+							play_inuse = false
+						end)
+						if debug_messages then
+							print('music WM_SETFOCUS')
+						end
+					end
 				end
 			end
-			if radio.player.music_player >= 2 or radio.player.music_player <= 4 then
+			if radio.player.music_player >= 2 and radio.player.music_player <= 4 then
 				if radio_play ~= nil then
 					radio.player.pause_play = true
 					radio.player.stop = false
 					setAudioStreamState(radio_play, as_action.RESUME)
+					lua_thread.create(function()
+						wait(2000)
+						play_inuse = false
+					end)
 					if debug_messages then
-						print('radio.player.music_player >= 2 or radio.player.music_player <= 4 WM_SETFOCUS')
+						print('music WM_SETFOCUS')
 					end
 				end
+			end
+		else
+			if radio_play ~= nil then
+				releaseAudioStream(radio_play)
 			end
 		end
 	end
@@ -700,6 +782,7 @@ function onScriptTerminate(scr, quitGame)
 end
 
 function sampev.onPlayAudioStream(url, position, radius, usePosition)
+	--print(url)
 	if not radio.player.stop then
 		return false
 	end
@@ -713,7 +796,6 @@ function update_script()
 		downloadUrlToFile(script_url, script_path, function(id, status)
 			if status == dlstatus.STATUS_ENDDOWNLOADDATA then
 				sampAddChatMessage(string.format("{ABB2B9}[%s]{FFFFFF} The update was successful!", script.this.name), -1)
-				blankIni()
 				update = true
 			end
 		end)
@@ -738,7 +820,7 @@ function scanGameFolder(path, tables)
     return tables
 end
 
-function radio_quickplay()
+function playAudio()
 	if radio_play ~= nil then
 		radio.player.pause_play = false
 		setAudioStreamState(radio_play, as_action.STOP)
@@ -778,6 +860,7 @@ function radio_quickplay()
 									setAudioStreamState(radio_play, as_action.PAUSE)
 								end
 							end
+							radioplayer = true
 							return true
 						end		
 					end)
@@ -787,13 +870,19 @@ function radio_quickplay()
 		if radio.player.music_player >= 2 and radio.player.music_player <= 4 then
 			if not radio.player.stop then
 				if radio.music[radio.musicid] ~= nil then
-					if doesFileExist(radio.music[radio.musicid].file) then
+					if doesFileExist(radio.music[radio.musicid].file) then		
 					
-							if radio_play ~= nil then
-								releaseAudioStream(radio_play)
-							end
-							radio_play = loadAudioStream(radio.music[radio.musicid].file)
+						if debug_messages then
+							print('play_radio() music' .. radio.music[radio.musicid].file)
+						end
+						
+						if radio_play ~= nil then
+							releaseAudioStream(radio_play)
+						end
+						radio_play = loadAudioStream(radio.music[radio.musicid].file)
+						if radio_play ~= nil then
 							setAudioStreamVolume(radio_play, radio.player.volume)
+						end
 							
 						if radio.player.pause_play then
 							if radio_play ~= nil then
@@ -804,6 +893,7 @@ function radio_quickplay()
 								setAudioStreamState(radio_play, as_action.PAUSE)
 							end
 						end
+						musicplayer = true
 					else
 						sampAddChatMessage(string.format("{ABB2B9}[%s]{FFFFFF} Bad audio file detected!", script.this.name), -1)
 					end
@@ -821,7 +911,7 @@ function radio_player()
 				if debug_messages then
 					print('ICON_STEP_BACKWARD stationid = '..radio.stationid)
 				end
-				radio_quickplay()
+				playAudio()
 			end
 				
 			if radio.stationid == 0 then
@@ -829,7 +919,7 @@ function radio_player()
 				if debug_messages then
 					print('ICON_STEP_BACKWARD: stationid = '..radio.stationid)
 				end
-				radio_quickplay()
+				playAudio()
 			end
 		end
 		if radio.player.music_player >= 2 and radio.player.music_player <= 4 then
@@ -838,7 +928,7 @@ function radio_player()
 				if debug_messages then
 					print('ICON_STEP_BACKWARD: musicid = '..radio.musicid)
 				end
-				radio_quickplay()
+				playAudio()
 			end
 
 			if radio.musicid == 0 then
@@ -846,20 +936,21 @@ function radio_player()
 				if debug_messages then
 					print('ICON_STEP_BACKWARD: musicid = '..radio.musicid)
 				end
-				radio_quickplay()
+				playAudio()
 			end
 		end
 	end
-	imgui.SameLine() 
+	imgui.SameLine(26) 
 	if imgui.Button(not radio.player.stop and (radio.player.pause_play and faicons.ICON_PAUSE .. '##Pause' or faicons.ICON_PLAY .. '##Play') or faicons.ICON_PLAY) then
 		if radio.player.music_player == 1 then
 			if not radio.player.stop then
 				radio.player.pause_play = not radio.player.pause_play
+				print(radio.player.pause_play)
 				if radio.player.pause_play then
 					if radio_play ~= nil then
 						radio.player.pause_play = true
 						setAudioStreamState(radio_play, as_action.PLAY)
-						radio_quickplay()
+						playAudio()
 					end
 				else
 					if radio_play ~= nil then
@@ -873,14 +964,16 @@ function radio_player()
 		if radio.player.music_player >= 2 and radio.player.music_player <= 4 then
 			if not radio.player.stop then
 				radio.player.pause_play = not radio.player.pause_play
+				print(radio.player.pause_play)
 				if radio.player.pause_play then
 					if radio_play ~= nil then
 						radio.player.pause_play = true
 						setAudioStreamState(radio_play, as_action.RESUME)
-						radio_quickplay()
+						playAudio()
 					end
 				else
 					if radio_play ~= nil then
+						
 						radio.player.pause_play = false
 						setAudioStreamState(radio_play, as_action.PAUSE)
 					end
@@ -888,18 +981,18 @@ function radio_player()
 			end
 		end
 	end 
-	imgui.SameLine() 
+	imgui.SameLine(48) 
 	if imgui.Button(radio.player.stop and faicons.ICON_PLAY_CIRCLE or faicons.ICON_STOP) then
 		if radio.player.music_player == 1 then
 			radio.player.stop = not radio.player.stop
-			radio_quickplay()
+			playAudio()
 		end
-		if radio.player.music_player == 2 or radio.player.music_player == 3 then
+		if radio.player.music_player >= 2 and radio.player.music_player <= 4 then
 			radio.player.stop = not radio.player.stop
-			radio_quickplay()
+			playAudio()
 		end
 	end
-	imgui.SameLine() 
+	imgui.SameLine(70) 
 	if imgui.Button(faicons.ICON_STEP_FORWARD) then
 		if radio.player.music_player == 1 then
 			if radio.stationid >= 1 and radio.stationid <= table.maxn(radio.stations) then
@@ -908,14 +1001,14 @@ function radio_player()
 					print('ICON_STEP_FORWARD: stationid = '..radio.stationid)
 				end
 					
-				radio_quickplay()
+				playAudio()
 			end
 			if radio.stationid == table.maxn(radio.stations) + 1 then
 				radio.stationid = 1
 				if debug_messages then
 					print('ICON_STEP_FORWARD: stationid = '..radio.stationid)
 				end
-				radio_quickplay()
+				playAudio()
 			end
 		end
 		if radio.player.music_player >= 2 and radio.player.music_player <= 4 then
@@ -925,14 +1018,14 @@ function radio_player()
 					print('ICON_STEP_FORWARD: musicid = '..radio.musicid)
 				end
 					
-				radio_quickplay()
+				playAudio()
 			end
 			if radio.musicid == table.maxn(radio.music) + 1 then
 				radio.musicid = 1
 				if debug_messages then
 					print('ICON_STEP_FORWARD: musicid = '..radio.musicid)
 				end
-				radio_quickplay()
+				playAudio()
 			end
 		end
 	end
@@ -1002,4 +1095,90 @@ function argb2hex(a, r, g, b)
 	argb = bit.bor(argb, bit.lshift(r, 16))
 	argb = bit.bor(argb, bit.lshift(a, 24))
 	return argb
+end
+
+-- IMGUI_API bool          CustomButton(const char* label, const ImVec4& col, const ImVec4& col_focus, const ImVec4& col_click, const ImVec2& size = ImVec2(0,0));
+function imgui.CustomButton(name, color, colorHovered, colorActive, size)
+    local clr = imgui.Col
+    imgui.PushStyleColor(clr.Button, color)
+    imgui.PushStyleColor(clr.ButtonHovered, colorHovered)
+    imgui.PushStyleColor(clr.ButtonActive, colorActive)
+    if not size then size = imgui.ImVec2(0, 0) end
+    local result = imgui.Button(name, size)
+    imgui.PopStyleColor(3)
+    return result
+end
+
+function apply_custom_style()
+	imgui.SwitchContext()
+	local ImVec4 = imgui.ImVec4
+	local ImVec2 = imgui.ImVec2
+	local style = imgui.GetStyle()
+	style.WindowRounding = 0
+	style.WindowPadding = ImVec2(8, 8)
+	style.WindowTitleAlign = ImVec2(0.5, 0.5)
+	--style.ChildWindowRounding = 0
+	style.FrameRounding = 0
+	style.ItemSpacing = ImVec2(8, 4)
+	style.ScrollbarSize = 10
+	style.ScrollbarRounding = 3
+	style.GrabMinSize = 10
+	style.GrabRounding = 0
+	style.Alpha = 1
+	style.FramePadding = ImVec2(4, 3)
+	style.ItemInnerSpacing = ImVec2(4, 4)
+	style.TouchExtraPadding = ImVec2(0, 0)
+	style.IndentSpacing = 21
+	style.ColumnsMinSpacing = 6
+	style.ButtonTextAlign = ImVec2(0.5, 0.5)
+	style.DisplayWindowPadding = ImVec2(22, 22)
+	style.DisplaySafeAreaPadding = ImVec2(4, 4)
+	style.AntiAliasedLines = true
+	--style.AntiAliasedShapes = true
+	style.CurveTessellationTol = 1.25
+	local colors = style.Colors
+	local clr = imgui.Col
+	colors[clr.FrameBg]                = ImVec4(0.48, 0.16, 0.16, 0.54)
+	colors[clr.FrameBgHovered]         = ImVec4(0.98, 0.26, 0.26, 0.40)
+	colors[clr.FrameBgActive]          = ImVec4(0.98, 0.26, 0.26, 0.67)
+	colors[clr.TitleBg]                = ImVec4(0.04, 0.04, 0.04, 1.00)
+	colors[clr.TitleBgActive]          = ImVec4(0.48, 0.16, 0.16, 1.00)
+	colors[clr.TitleBgCollapsed]       = ImVec4(0.00, 0.00, 0.00, 0.51)
+	colors[clr.CheckMark]              = ImVec4(0.98, 0.26, 0.26, 1.00)
+	colors[clr.SliderGrab]             = ImVec4(0.88, 0.26, 0.24, 1.00)
+	colors[clr.SliderGrabActive]       = ImVec4(0.98, 0.26, 0.26, 1.00)
+	colors[clr.Button]                 = ImVec4(0.98, 0.26, 0.26, 0.40)
+	colors[clr.ButtonHovered]          = ImVec4(0.98, 0.26, 0.26, 1.00)
+	colors[clr.ButtonActive]           = ImVec4(0.98, 0.06, 0.06, 1.00)
+	colors[clr.Header]                 = ImVec4(0.98, 0.26, 0.26, 0.31)
+	colors[clr.HeaderHovered]          = ImVec4(0.98, 0.26, 0.26, 0.80)
+	colors[clr.HeaderActive]           = ImVec4(0.98, 0.26, 0.26, 1.00)
+	colors[clr.Separator]              = colors[clr.Border]
+	colors[clr.SeparatorHovered]       = ImVec4(0.75, 0.10, 0.10, 0.78)
+	colors[clr.SeparatorActive]        = ImVec4(0.75, 0.10, 0.10, 1.00)
+	colors[clr.ResizeGrip]             = ImVec4(0.98, 0.26, 0.26, 0.25)
+	colors[clr.ResizeGripHovered]      = ImVec4(0.98, 0.26, 0.26, 0.67)
+	colors[clr.ResizeGripActive]       = ImVec4(0.98, 0.26, 0.26, 0.95)
+	colors[clr.TextSelectedBg]         = ImVec4(0.98, 0.26, 0.26, 0.35)
+	colors[clr.Text]                   = ImVec4(1.00, 1.00, 1.00, 1.00)
+	colors[clr.TextDisabled]           = ImVec4(0.50, 0.50, 0.50, 1.00)
+	colors[clr.WindowBg]               = ImVec4(0.06, 0.06, 0.06, 0.94)
+	--colors[clr.ChildWindowBg]          = ImVec4(1.00, 1.00, 1.00, 0.00)
+	colors[clr.PopupBg]                = ImVec4(0.08, 0.08, 0.08, 0.94)
+	--colors[clr.ComboBg]                = colors[clr.PopupBg]
+	colors[clr.Border]                 = ImVec4(0.43, 0.43, 0.50, 0.50)
+	colors[clr.BorderShadow]           = ImVec4(0.00, 0.00, 0.00, 0.00)
+	colors[clr.MenuBarBg]              = ImVec4(0.14, 0.14, 0.14, 1.00)
+	colors[clr.ScrollbarBg]            = ImVec4(0.02, 0.02, 0.02, 0.53)
+	colors[clr.ScrollbarGrab]          = ImVec4(0.31, 0.31, 0.31, 1.00)
+	colors[clr.ScrollbarGrabHovered]   = ImVec4(0.41, 0.41, 0.41, 1.00)
+	colors[clr.ScrollbarGrabActive]    = ImVec4(0.51, 0.51, 0.51, 1.00)
+	--colors[clr.CloseButton]            = ImVec4(0.41, 0.41, 0.41, 0.50)
+	--colors[clr.CloseButtonHovered]     = ImVec4(0.98, 0.39, 0.36, 1.00)
+	--colors[clr.CloseButtonActive]      = ImVec4(0.98, 0.39, 0.36, 1.00)
+	colors[clr.PlotLines]              = ImVec4(0.61, 0.61, 0.61, 1.00)
+	colors[clr.PlotLinesHovered]       = ImVec4(1.00, 0.43, 0.35, 1.00)
+	colors[clr.PlotHistogram]          = ImVec4(0.90, 0.70, 0.00, 1.00)
+	colors[clr.PlotHistogramHovered]   = ImVec4(1.00, 0.60, 0.00, 1.00)
+	--colors[clr.ModalWindowDarkening]   = ImVec4(0.80, 0.80, 0.80, 0.35)
 end
