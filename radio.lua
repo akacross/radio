@@ -29,24 +29,29 @@ local u8 = encoding.UTF8
 local lfs = require 'lfs'
 local faicons = require 'fa-icons'
 local ti = require 'tabler_icons'
+local fa = require 'fAwesome5'
 local wm  = require('lib.windows.message')
 local as_action = require('moonloader').audiostream_state
 local as_status = require('moonloader').audiostream_status
 local dlstatus = require('moonloader').download_status
 local https = require 'ssl.https'
-local path = getWorkingDirectory() .. '\\config\\' 
+local path = getWorkingDirectory() .. '/config/' 
 local cfg = path .. 'radio.ini' 
-local audiopath = getGameDirectory() .. "\\moonloader\\resource\\audio\\radio\\pls"
+local audiopath = getGameDirectory() .. "/moonloader/resource/audio/radio/pls/"
 local script_path = thisScript().path
 local script_url = "https://raw.githubusercontent.com/akacross/radio/main/radio.lua"
 local update_url = "https://raw.githubusercontent.com/akacross/radio/main/radio.txt"
 
-local function loadIconicFont(fontSize)
+local function loadIconicFont(fromfile, fontSize, min, max, fontdata)
     local config = imgui.ImFontConfig()
     config.MergeMode = true
     config.PixelSnapH = true
-    local iconRanges = imgui.new.ImWchar[3](ti.min_range, ti.max_range, 0)
-    imgui.GetIO().Fonts:AddFontFromMemoryCompressedBase85TTF(ti.get_font_data_base85(), fontSize, config, iconRanges)
+    local iconRanges = new.ImWchar[3](min, max, 0)
+	if fromfile then
+		imgui.GetIO().Fonts:AddFontFromFileTTF(fontdata, fontSize, config, iconRanges)
+	else
+		imgui.GetIO().Fonts:AddFontFromMemoryCompressedBase85TTF(fontdata, fontSize, config, iconRanges)
+	end
 end
 
 local blank = {}
@@ -100,6 +105,7 @@ local musicplayer = false
 local stations_menu = new.bool(false)
 local mainc = imgui.ImVec4(0.92, 0.27, 0.92, 1.0)
 local mnames = {'Radio', 'Music', 'Queue', 'Folders'}
+local fileformats = {'.mp3','.mp4','.wav','.m4a','.flac','.m4r','.ogg','.mp2','.amr','.wma','.aac','.aiff'}
 local move = false
 local update = false
 local inuse = false
@@ -125,13 +131,17 @@ function main()
 	sampRegisterChatCommand("radio", menu_command)
 	sampRegisterChatCommand("music", menu_command)
 	
+	if radio.player.pause_play then
+		playAudio()
+	end
+	
 	if radio.player.autoplay then
 		if radio.player.music_player == 1 then
-			radio.stationid = 1
+			--radio.stationid = 1
 			playAudio()
 		end
 		if radio.player.music_player >= 2 or radio.player.music_player <= 4 then
-			radio.musicid = 1
+			--radio.musicid = 1
 			playAudio()
 		end
 	end
@@ -141,7 +151,7 @@ function main()
 	end
 	
 	lua_thread.create(function()
-		while true do wait(400) 
+		while true do wait(2000) 
 			if not radio.player.stop then
 				if radio.player.music_player == 1 then	
 					if not musicplayer then
@@ -159,8 +169,10 @@ function main()
 							end
 						end
 						if radio.stationid >= table.maxn(radio.stations) + 1 then
-							radio.stationid = 1
-							playAudio()
+							if next(radio.stations) then
+								radio.stationid = 1
+								playAudio()
+							end
 						end	
 					end
 				end
@@ -182,9 +194,11 @@ function main()
 						end
 					
 						if radio.musicid >= table.maxn(radio.music) + 1 then
-							print('radio.musicid >= table.maxn(radio.music) + 1 loop pass musicid + 1')
-							radio.musicid = 1
-							playAudio()
+							if next(radio.music) then
+								print('radio.musicid >= table.maxn(radio.music) + 1 loop pass musicid + 1')
+								radio.musicid = 1
+								playAudio()
+							end
 						end
 					end
 				end
@@ -195,7 +209,7 @@ function main()
 	while true do wait(0)
 	
 		if radio_play ~= nil then
-			if getAudioStreamState(radio_play) == as_status.STOPPED or getAudioStreamState(radio_play) == as_status.PAUSED then
+			if getAudioStreamState(radio_play) == as_status.STOPPED --[[or getAudioStreamState(radio_play) == as_status.PAUSED]] then
 				radioplayer = false
 				musicplayer = false
 			end
@@ -232,27 +246,12 @@ function menu_command()
 	end
 end
 
--- imgui.OnInitialize() called only once, before the first render
 imgui.OnInitialize(function()
-	apply_custom_style() -- apply custom style
-	local defGlyph = imgui.GetIO().Fonts.ConfigData.Data[0].GlyphRanges
-	imgui.GetIO().Fonts:Clear() -- clear the fonts
-	local font_config = imgui.ImFontConfig() -- each font has its own config
-	font_config.SizePixels = 14.0;
-	font_config.GlyphExtraSpacing.x = 0.1
-	-- main font
-	local def = imgui.GetIO().Fonts:AddFontFromFileTTF(getFolderPath(0x14) .. '\\arialbd.ttf', font_config.SizePixels, font_config, defGlyph)
-   
-	local config = imgui.ImFontConfig()
-	config.MergeMode = true
-	config.PixelSnapH = true
-	config.FontDataOwnedByAtlas = false
-	config.GlyphOffset.y = 1.0 -- offset 1 pixel from down
-	local fa_glyph_ranges = new.ImWchar[3]({ faicons.min_range, faicons.max_range, 0 })
-	-- icons
-	local faicon = imgui.GetIO().Fonts:AddFontFromMemoryCompressedBase85TTF(faicons.get_font_data_base85(), font_config.SizePixels, config, fa_glyph_ranges)
+	apply_custom_style()
 
-	loadIconicFont(14)
+	loadIconicFont(false, 14.0, faicons.min_range, faicons.max_range, faicons.get_font_data_base85())
+	loadIconicFont(true, 14.0, fa.min_range, fa.max_range, 'moonloader/resource/fonts/fa-solid-900.ttf')
+	loadIconicFont(false, 14.0, ti.min_range, ti.max_range, ti.get_font_data_base85())
 
 	imgui.GetIO().ConfigWindowsMoveFromTitleBarOnly = true
 	imgui.GetIO().IniFilename = nil
@@ -277,7 +276,6 @@ function()
 
 	local width, height = getScreenResolution()
 	imgui.SetNextWindowPos(imgui.ImVec2(width / 2, height / 2), imgui.Cond.FirstUseEver, imgui.ImVec2(0.5, 0.5))
-	imgui.SetNextWindowSize(imgui.ImVec2(723, 420), imgui.Cond.FirstUseEver)
 
     imgui.Begin(faicons.ICON_PLAY .. string.format(" %s Settings %s - Verison: %s", script.this.name, ti.ICON_SETTINGS, script_version_text), stations_menu, imgui.WindowFlags.NoResize + imgui.WindowFlags.NoSavedSettings + imgui.WindowFlags.AlwaysAutoResize) 		
 		imgui.BeginChild("##1", imgui.ImVec2(85, 392), true)
@@ -319,6 +317,7 @@ function()
 				imgui.ImVec4(0.30, 0.08, 0.08, 1), 
 				imgui.ImVec2(75, 75)) then
 				loadIni()
+				playAudio()
 			end
 			if imgui.IsItemHovered() then
 				imgui.SetTooltip('Reload the Script')
@@ -333,6 +332,7 @@ function()
 				imgui.ImVec4(0.30, 0.08, 0.08, 1), 
 				imgui.ImVec2(75, 75)) then
 				blankIni()
+				playAudio()
 			end
 			if imgui.IsItemHovered() then
 				imgui.SetTooltip('Reset the Script to default settings')
@@ -433,8 +433,8 @@ function()
 				for k, v in ipairs(radio.stations) do
 					
 					text = new.char[256](v.station)
-					imgui.PushItemWidth(325)
-					if imgui.InputText('##font'..k, text, sizeof(text), imgui.InputTextFlags.EnterReturnsTrue) then
+					imgui.PushItemWidth(320)
+					if imgui.InputText('##station'..k, text, sizeof(text), imgui.InputTextFlags.EnterReturnsTrue) then
 						v.station = u8:decode(str(text))
 					end
 					imgui.PopItemWidth()
@@ -455,7 +455,7 @@ function()
 						playAudio()
 						musicplayer = false
 						lua_thread.create(function()
-							wait(2000)
+							wait(5000)
 							play_inuse = false
 						end)
 					end
@@ -487,35 +487,28 @@ function()
 				end
 			end
 			if radio.player.music_player == 2 then
-			
 				for k, v in pairs(paths) do
 					k = tostring(k)
-					if k:match(".+%.mp3") or k:match(".+%.mp4") or k:match(".+%.wav") or k:match(".+%.m4a") or k:match(".+%.flac") or k:match(".+%.m4r") or k:match(".+%.ogg") or k:match(".+%.mp2") or
-						k:match(".+%.amr") or k:match(".+%.wma") or k:match(".+%.aac") or k:match(".+%.aiff") then
-						
-						imgui.Text(u8(k))
-						imgui.SameLine()
-						
-						if imgui.Button('Add to Queue##'..k) then 
-							radio.music[#radio.music + 1] = {
-								file = v,
-								name = k,
-							}
-							radio.musicid = 1
-							for k, v in ipairs(radio.music) do
-								local id = table.maxn(radio.music)
-								if k == id then
-									if debug_messages then
-										print(k..' - '..table.maxn(radio.music))
-									end
+					for id, filetype in pairs(fileformats) do
+						if k:match(".+%"..filetype) then
+							for x, a in pairs(fileformats) do
+								if string.find(k, a) then
+									name = split(k, a)
+									imgui.Text(name[1])
 								end
 							end
-						end	
-					end 
+							imgui.SameLine()
+							if imgui.Button('Add to Queue##'..k) then 
+								radio.music[#radio.music + 1] = {
+									file = v,
+									name = k,
+								}
+							end	
+						end 
+					end
 				end
 			end
 			if radio.player.music_player == 3 then
-				
 				radio_player()
 				imgui.SameLine()			
 				if imgui.Checkbox('##autoplay', new.bool(radio.player.autoplay)) then 
@@ -533,20 +526,27 @@ function()
 				end
 				imgui.SameLine()
 				if radio.music[radio.musicid] ~= nil then
-					imgui.Text(string.format(" %s[%d]", radio.music[radio.musicid].name, radio.musicid))
+				
+					for x, a in pairs(fileformats) do
+						if string.find(radio.music[radio.musicid].name, a) then
+							name = split(radio.music[radio.musicid].name, a)
+							imgui.Text(string.format(" %s[%d]", name[1], radio.musicid))
+						end
+					end
+					
 				else
 					imgui.Text(string.format(" Empty[%d]", radio.musicid))
 				end
 				
 				for k, v in ipairs(radio.music) do
-					imgui.PushItemWidth(200)
-					text = new.char[256](v.name)
-					if imgui.InputText('##name'..k, text, sizeof(text), imgui.InputTextFlags.EnterReturnsTrue) then
-						v.name = u8:decode(str(text))
+					for x, a in pairs(fileformats) do
+						if string.find(v.name, a) then
+							name = split(v.name, a)
+							imgui.Text(name[1])
+						end
 					end
-					imgui.PopItemWidth()
 					
-					imgui.SameLine()
+					imgui.SameLine(440)
 					if imgui.Button('Play##'..k) then 
 						radio.musicid = k
 						playAudio()
@@ -608,15 +608,6 @@ function()
 								folder = 'path here',
 								name = 'name of path',
 							}
-							
-							for k, v in ipairs(radio.folders) do
-								local id = table.maxn(radio.folders)
-								if k == id then
-									if debug_messages then
-										print(k..' - '..table.maxn(radio.folders))
-									end
-								end
-							end
 						end
 					end
 				end
@@ -687,6 +678,10 @@ function onWindowMessage(msg, wparam, lparam)
 						if debug_messages then
 							print('Radio WM_KILLFOCUS')
 						end
+						lua_thread.create(function()
+							wait(5000)
+							play_inuse = false
+						end)
 					else
 						if radio_play ~= nil then
 							play_inuse = true
@@ -694,6 +689,10 @@ function onWindowMessage(msg, wparam, lparam)
 							if debug_messages then
 								print('Music WM_KILLFOCUS')
 							end
+							lua_thread.create(function()
+								wait(5000)
+								play_inuse = false
+							end)
 						end
 					end
 				end
@@ -705,6 +704,10 @@ function onWindowMessage(msg, wparam, lparam)
 					if debug_messages then
 						print('Music WM_KILLFOCUS')
 					end
+					lua_thread.create(function()
+						wait(5000)
+						play_inuse = false
+					end)
 				end
 			end
 		else
@@ -718,7 +721,7 @@ function onWindowMessage(msg, wparam, lparam)
 				if not musicplayer then
 					playAudio()
 					lua_thread.create(function()
-						wait(2000)
+						wait(5000)
 						play_inuse = false
 					end)
 					if debug_messages then
@@ -730,7 +733,7 @@ function onWindowMessage(msg, wparam, lparam)
 						radio.player.stop = false
 						setAudioStreamState(radio_play, as_action.RESUME)
 						lua_thread.create(function()
-							wait(2000)
+							wait(5000)
 							play_inuse = false
 						end)
 						if debug_messages then
@@ -745,7 +748,7 @@ function onWindowMessage(msg, wparam, lparam)
 					radio.player.stop = false
 					setAudioStreamState(radio_play, as_action.RESUME)
 					lua_thread.create(function()
-						wait(2000)
+						wait(5000)
 						play_inuse = false
 					end)
 					if debug_messages then
@@ -789,17 +792,28 @@ function sampev.onPlayAudioStream(url, position, radius, usePosition)
 end
 
 function update_script()
-	update_text = https.request(update_url)
-	update_version = update_text:match("version: (.+)")
-	if tonumber(update_version) > script_version then
-		sampAddChatMessage(string.format("{ABB2B9}[%s]{FFFFFF} New version found! The update is in progress..", script.this.name), -1)
-		downloadUrlToFile(script_url, script_path, function(id, status)
-			if status == dlstatus.STATUS_ENDDOWNLOADDATA then
-				sampAddChatMessage(string.format("{ABB2B9}[%s]{FFFFFF} The update was successful!", script.this.name), -1)
-				update = true
-			end
-		end)
-	end
+	downloadUrlToFile(update_url, getWorkingDirectory()..'/'..string.lower(script.this.name)..'.txt', function(id, status)
+		if status == dlstatus.STATUS_ENDDOWNLOADDATA then
+			update_text = https.request(update_url)
+			update_version = update_text:match("version: (.+)")
+			
+			--local split1 = split(script_path, 'moonloader\\')
+			--local split2 = split(split1[2], ".")
+			--if split2[2] ~= nil then
+				--if split2[2] ~= 'lua' then
+					if tonumber(update_version) > script_version then
+						sampAddChatMessage(string.format("{ABB2B9}[%s]{FFFFFF} New version found! The update is in progress..", script.this.name), -1)
+						downloadUrlToFile(script_url, script_path, function(id, status)
+							if status == dlstatus.STATUS_ENDDOWNLOADDATA then
+								sampAddChatMessage(string.format("{ABB2B9}[%s]{FFFFFF} The update was successful!", script.this.name), -1)
+								update = true
+							end
+						end)
+					end
+				--end
+			--end
+		end
+	end)
 end
 
 function scanGameFolder(path, tables)
@@ -837,9 +851,8 @@ function playAudio()
 		if radio.player.music_player == 1 then
 			if radio.stations[radio.stationid] ~= nil then
 				if not radio.player.stop then
-					os.remove(audiopath..'\\playlist'..radio.stationid)
-					downloadUrlToFile(radio.stations[radio.stationid].station, audiopath..'\\playlist'..radio.stationid, function(id, status)
-						if status == dlstatus.STATUS_BEGINDOWNLOADDATA then
+					downloadUrlToFile(radio.stations[radio.stationid].station, audiopath..string.lower(script.this.name)..radio.stationid..'.pls', function(id, status)
+						if status == dlstatus.STATUS_ENDDOWNLOADDATA then
 							if debug_messages then
 								print('play_radio() radio.player.music_player == 1 station = ' .. radio.stations[radio.stationid].station)
 							end
@@ -861,8 +874,7 @@ function playAudio()
 								end
 							end
 							radioplayer = true
-							return true
-						end		
+						end
 					end)
 				end
 			end
@@ -947,14 +959,14 @@ function radio_player()
 				radio.player.pause_play = not radio.player.pause_play
 				print(radio.player.pause_play)
 				if radio.player.pause_play then
+					radio.player.pause_play = true
 					if radio_play ~= nil then
-						radio.player.pause_play = true
 						setAudioStreamState(radio_play, as_action.PLAY)
-						playAudio()
 					end
+					playAudio()
 				else
+					radio.player.pause_play = false
 					if radio_play ~= nil then
-						radio.player.pause_play = false
 						setAudioStreamState(radio_play, as_action.PAUSE)
 					end
 				end
@@ -966,15 +978,16 @@ function radio_player()
 				radio.player.pause_play = not radio.player.pause_play
 				print(radio.player.pause_play)
 				if radio.player.pause_play then
+					radio.player.pause_play = true
 					if radio_play ~= nil then
-						radio.player.pause_play = true
 						setAudioStreamState(radio_play, as_action.RESUME)
+					end
+					if not musicplayer then
 						playAudio()
 					end
-				else
+				else		
+					radio.player.pause_play = false
 					if radio_play ~= nil then
-						
-						radio.player.pause_play = false
 						setAudioStreamState(radio_play, as_action.PAUSE)
 					end
 				end
@@ -1056,6 +1069,38 @@ function saveIni()
 		end 
 	end 
 end
+
+function httpRequest(request, body, handler) -- copas.http
+    -- start polling task
+    if not copas.running then
+        copas.running = true
+        lua_thread.create(function()
+            wait(0)
+            while not copas.finished() do
+                local ok, err = copas.step(0)
+                if ok == nil then error(err) end
+                wait(0)
+            end
+            copas.running = false
+        end)
+    end
+    -- do request
+    if handler then
+        return copas.addthread(function(r, b, h)
+            copas.setErrorHandler(function(err) h(nil, err) end)
+            h(http.request(r, b))
+        end, request, body, handler)
+    else
+        local results
+        local thread = copas.addthread(function(r, b)
+            copas.setErrorHandler(function(err) results = {nil, err} end)
+            results = table.pack(http.request(r, b))
+        end, request, body)
+        while coroutine.status(thread) ~= 'dead' do wait(0) end
+        return table.unpack(results)
+    end
+end
+
 
 function hex2rgba(rgba)
 	local a = bit.band(bit.rshift(rgba, 24),	0xFF)
